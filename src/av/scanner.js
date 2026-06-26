@@ -1,15 +1,7 @@
-// Lightweight local signature scanner.
-//
-// This is not a replacement for a dedicated antivirus engine. It provides
-// transparent local checks: SHA-256 signature matching, risk heuristics, and
-// reversible quarantine.
-
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { getSignatureInfo, isExecutablePath } = require('../security/windowsChecks');
-const { recommendationForRisk } = require('../security/riskEngine');
 
 const SIGNATURE_DB_PATH = path.join(__dirname, 'signatureDB.json');
 const QUARANTINE_DIR = path.join(os.homedir(), '.soterios-quarantine');
@@ -33,8 +25,7 @@ const DOUBLE_EXTENSION_PATTERN = /\.(pdf|docx?|xlsx?|pptx?|jpg|jpeg|png|gif|txt|
 function loadSignatureDB() {
   try {
     const raw = fs.readFileSync(SIGNATURE_DB_PATH, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed.signatures || [];
+    return JSON.parse(raw).signatures || [];
   } catch (err) {
     console.error('[scanner] Failed to load signature DB:', err);
     return [];
@@ -64,31 +55,7 @@ function calculateEntropy(buffer) {
   return entropy;
 }
 
-function parsePEMetadata(buffer) {
-  if (!buffer || buffer.length < 0x40 || buffer.toString('ascii', 0, 2) !== 'MZ') {
-    return null;
-  }
-  const peOffset = buffer.readUInt32LE(0x3c);
-  if (peOffset + 24 > buffer.length || buffer.toString('ascii', peOffset, peOffset + 4) !== 'PE\0\0') {
-    return { validPE: false };
-  }
-  const machine = buffer.readUInt16LE(peOffset + 4);
-  const sections = buffer.readUInt16LE(peOffset + 6);
-  const timestamp = buffer.readUInt32LE(peOffset + 8);
-  const characteristics = buffer.readUInt16LE(peOffset + 22);
-  return {
-    validPE: true,
-    machine,
-    sections,
-    compileTime: timestamp ? new Date(timestamp * 1000).toISOString() : null,
-    isDll: !!(characteristics & 0x2000),
-    isExecutable: !!(characteristics & 0x0002)
-  };
-}
-
-function addFlag(flags, severity, message) {
-  flags.push({ severity, message });
-}
+function addFlag(flags, severity, message) { flags.push({ severity, message }); }
 
 function scoreFlags(flags) {
   return flags.reduce((total, flag) => {
@@ -108,92 +75,45 @@ function riskFromStatus(status, flags = []) {
   return { score: 0, level: 'none' };
 }
 
-function reputationForHash(hash, options = {}) {
-  const reputation = options.hashReputation || {};
-  const hit = reputation[hash] || reputation[String(hash).toLowerCase()];
-  if (!hit) return { status: 'unknown', source: 'local-reputation-cache' };
-  return {
-    status: hit.status || 'unknown',
-    source: hit.source || 'local-reputation-cache',
-    detail: hit.detail || null
-  };
-}
-
-function runHeuristics(filePath, sampleBuffer, stat, signature, peMetadata) {
+function runHeuristics(filePath, sampleBuffer, stat) {
   const flags = [];
   const ext = path.extname(filePath).toLowerCase();
   const baseName = path.basename(filePath);
   const normalizedPath = filePath.toLowerCase();
 
-  if (SUSPICIOUS_EXTENSIONS.has(ext)) {
-    addFlag(flags, 'medium', `Script or control-panel capable extension (${ext})`);
-  }
-
-  if (DOCUMENT_MACRO_EXTENSIONS.has(ext)) {
-    addFlag(flags, 'medium', `Office macro-enabled document (${ext})`);
-  }
-
-  if (DOUBLE_EXTENSION_PATTERN.test(baseName)) {
-    addFlag(flags, 'high', 'Double extension disguises an executable file type');
-  }
+  if (SUSPICIOUS_EXTENSIONS.has(ext)) addFlag(flags, 'medium', `Script or control-panel capable extension (${ext})`);
+  if (DOCUMENT_MACRO_EXTENSIONS.has(ext)) addFlag(flags, 'medium', `Office macro-enabled document (${ext})`);
+  if (DOUBLE_EXTENSION_PATTERN.test(baseName)) addFlag(flags, 'high', 'Double extension disguises an executable file type');
 
   const tempIndicators = ['\\temp\\', '/tmp/', '\\appdata\\local\\temp', '/var/tmp/'];
-  if (tempIndicators.some((indicator) => normalizedPath.includes(indicator))) {
+  if (tempIndicators.some((i) => normalizedPath.includes(i)))
     addFlag(flags, EXECUTABLE_EXTENSIONS.has(ext) ? 'high' : 'low', 'Located in a temporary directory');
-  }
 
   const startupIndicators = [
     '\\microsoft\\windows\\start menu\\programs\\startup\\',
     '\\appdata\\roaming\\microsoft\\windows\\start menu\\programs\\startup\\'
   ];
-  if (startupIndicators.some((indicator) => normalizedPath.includes(indicator))) {
+  if (startupIndicators.some((i) => normalizedPath.includes(i)))
     addFlag(flags, 'medium', 'Located in a Windows startup folder');
-  }
 
-  if (normalizedPath.includes('\\appdata\\roaming\\') && EXECUTABLE_EXTENSIONS.has(ext)) {
-    addFlag(flags, 'medium', 'Suspicious executable in AppData Roaming');
-  }
+  if (normalizedPath.includes('\\appdata\\roaming\\') && EXECUTABLE_EXTENSIONS.has(ext))
+    addFlag(flags, 'medium', 'Executable or script located under AppData Roaming');
 
-  if (isExecutablePath(filePath) && signature && signature.status !== 'Valid') {
-    addFlag(flags, 'medium', 'Executable has no trusted digital signature');
-  }
-
-  if (peMetadata && peMetadata.validPE && peMetadata.sections <= 2) {
-    addFlag(flags, 'low', 'PE metadata shows an unusually low section count');
-  }
-
-  if (peMetadata && peMetadata.validPE && peMetadata.compileTime) {
-    const ageMs = Date.now() - new Date(peMetadata.compileTime).getTime();
-    if (ageMs < 1000 * 60 * 60 * 24 * 7) {
-      addFlag(flags, 'low', 'Executable compile timestamp is very recent');
-    }
-  }
-
-  if (stat && stat.size > 0 && stat.size < 1024 && EXECUTABLE_EXTENSIONS.has(ext)) {
+  if (stat && stat.size > 0 && stat.size < 1024 && EXECUTABLE_EXTENSIONS.has(ext))
     addFlag(flags, 'low', 'Very small executable or script file');
-  }
 
   if (sampleBuffer && sampleBuffer.length > 0) {
     const entropy = calculateEntropy(sampleBuffer);
-    if (entropy > 7.65 && EXECUTABLE_EXTENSIONS.has(ext)) {
+    if (entropy > 7.65 && EXECUTABLE_EXTENSIONS.has(ext))
       addFlag(flags, 'high', `High entropy (${entropy.toFixed(2)}/8.0), possibly packed or encrypted`);
-    } else if (entropy > 7.75) {
+    else if (entropy > 7.75)
       addFlag(flags, 'low', `High entropy (${entropy.toFixed(2)}/8.0)`);
-    }
 
     const sampleText = sampleBuffer.toString('utf8').toLowerCase();
-    const scriptSignals = [
-      'powershell',
-      'invoke-expression',
-      'frombase64string',
-      'wscript.shell',
-      'downloadstring',
-      'encodedcommand'
-    ];
-    const hits = scriptSignals.filter((signal) => sampleText.includes(signal));
-    if (hits.length > 0) {
+    const scriptSignals = ['powershell', 'invoke-expression', 'frombase64string', 'wscript.shell', 'downloadstring', 'encodedcommand'];
+    const hits = scriptSignals.filter((s) => sampleText.includes(s));
+    if (hits.length > 0)
       addFlag(flags, hits.length >= 2 ? 'high' : 'medium', `Suspicious script keywords: ${hits.join(', ')}`);
-    }
   }
 
   return flags;
@@ -201,112 +121,42 @@ function runHeuristics(filePath, sampleBuffer, stat, signature, peMetadata) {
 
 async function scanFile(filePath, signatures, options = {}) {
   let stat;
-  try {
-    stat = fs.statSync(filePath);
-  } catch (err) {
+  try { stat = fs.statSync(filePath); } catch (err) {
     return { path: filePath, status: 'error', error: 'Could not stat file' };
   }
 
-  if (!stat.isFile()) {
-    return { path: filePath, status: 'skipped', reason: 'Not a regular file' };
-  }
+  if (!stat.isFile()) return { path: filePath, status: 'skipped', reason: 'Not a regular file' };
 
   const maxFileSizeBytes = options.maxFileSizeBytes || Infinity;
   if (stat.size > maxFileSizeBytes) {
-    return {
-      path: filePath,
-      status: 'skipped',
-      reason: `Larger than configured limit (${Math.round(maxFileSizeBytes / 1024 / 1024)} MB)`,
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString()
-    };
+    return { path: filePath, status: 'skipped', reason: `Larger than configured limit`, sizeBytes: stat.size, modifiedAt: stat.mtime.toISOString() };
   }
 
-  const maxSampleBytes = 2 * 1024 * 1024;
   let sampleBuffer = Buffer.alloc(0);
   try {
     const fd = fs.openSync(filePath, 'r');
-    const size = Math.min(stat.size, maxSampleBytes);
+    const size = Math.min(stat.size, 2 * 1024 * 1024);
     sampleBuffer = Buffer.alloc(size);
     fs.readSync(fd, sampleBuffer, 0, size, 0);
     fs.closeSync(fd);
-  } catch (err) {
-    // Non-fatal; entropy and content heuristics will be skipped.
-  }
+  } catch (err) {}
 
   let hash;
-  try {
-    hash = await hashFile(filePath);
-  } catch (err) {
+  try { hash = await hashFile(filePath); } catch (err) {
     return { path: filePath, status: 'error', error: 'Could not read/hash file' };
   }
 
   const match = signatures.find((sig) => sig.hash.toLowerCase() === hash.toLowerCase());
-  const reputation = reputationForHash(hash, options);
-  if (reputation.status === 'malicious') {
-    return {
-      path: filePath,
-      status: 'match',
-      hash,
-      reputation,
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString(),
-      signatureName: reputation.detail || 'Hash reputation match',
-      risk: riskFromStatus('match'),
-      explanation: 'SHA-256 matched a malicious hash reputation source.',
-      recommendedAction: 'Quarantine the file and investigate its origin.'
-    };
-  }
-
   if (match) {
-    return {
-      path: filePath,
-      status: 'match',
-      hash,
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString(),
-      signatureName: match.name,
-      risk: riskFromStatus('match'),
-      reputation,
-      explanation: `SHA-256 matched known local signature "${match.name}".`,
-      recommendedAction: 'Quarantine the file and investigate its origin.'
-    };
+    return { path: filePath, status: 'match', hash, sizeBytes: stat.size, modifiedAt: stat.mtime.toISOString(), signatureName: match.name, risk: riskFromStatus('match') };
   }
 
-  const signature = isExecutablePath(filePath) ? await getSignatureInfo(filePath) : { status: 'NotChecked', publisher: null };
-  const peMetadata = parsePEMetadata(sampleBuffer);
-  const flags = runHeuristics(filePath, sampleBuffer, stat, signature, peMetadata);
+  const flags = runHeuristics(filePath, sampleBuffer, stat);
   if (flags.length > 0) {
-    const risk = riskFromStatus('suspicious', flags);
-    return {
-      path: filePath,
-      status: 'suspicious',
-      hash,
-      reputation,
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString(),
-      flags,
-      signature,
-      peMetadata,
-      risk,
-      explanation: flags.map((flag) => flag.message).join('; '),
-      recommendedAction: recommendationForRisk(risk, 'file')
-    };
+    return { path: filePath, status: 'suspicious', hash, sizeBytes: stat.size, modifiedAt: stat.mtime.toISOString(), flags, risk: riskFromStatus('suspicious', flags) };
   }
 
-  return {
-    path: filePath,
-    status: 'clean',
-    hash,
-    sizeBytes: stat.size,
-    modifiedAt: stat.mtime.toISOString(),
-    reputation,
-    signature,
-    peMetadata,
-    risk: riskFromStatus('clean'),
-    explanation: 'No local signature or heuristic risk was found.',
-    recommendedAction: 'No action needed.'
-  };
+  return { path: filePath, status: 'clean', hash, sizeBytes: stat.size, modifiedAt: stat.mtime.toISOString(), risk: riskFromStatus('clean') };
 }
 
 function walkDirectory(dirPath, onFile, options = {}) {
@@ -316,20 +166,14 @@ function walkDirectory(dirPath, onFile, options = {}) {
   function walk(current, depth) {
     if (depth > maxDepth) return;
     let entries;
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch (err) {
-      return;
-    }
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch (err) { return; }
 
     for (const entry of entries) {
       const fullPath = path.join(current, entry.name);
       if (entry.isDirectory()) {
         const normalizedName = entry.name.toLowerCase();
         const normalizedFullPath = fullPath.toLowerCase();
-        if (excludedDirNames.some((excluded) => normalizedName === excluded || normalizedFullPath.includes(excluded))) {
-          continue;
-        }
+        if (excludedDirNames.some((ex) => normalizedName === ex || normalizedFullPath.includes(ex))) continue;
         walk(fullPath, depth + 1);
       } else if (entry.isFile()) {
         onFile(fullPath);
@@ -341,9 +185,7 @@ function walkDirectory(dirPath, onFile, options = {}) {
 }
 
 function quarantineFile(filePath) {
-  if (!fs.existsSync(QUARANTINE_DIR)) {
-    fs.mkdirSync(QUARANTINE_DIR, { recursive: true });
-  }
+  if (!fs.existsSync(QUARANTINE_DIR)) fs.mkdirSync(QUARANTINE_DIR, { recursive: true });
   const safeBase = path.basename(filePath).replace(/[^a-zA-Z0-9._-]/g, '_');
   const destName = `${Date.now()}_${safeBase}`;
   const dest = path.join(QUARANTINE_DIR, destName);
@@ -355,9 +197,7 @@ function restoreQuarantinedFile(quarantinePath, originalPath) {
   if (!fs.existsSync(quarantinePath)) throw new Error('Quarantined file does not exist');
   const targetDir = path.dirname(originalPath);
   fs.mkdirSync(targetDir, { recursive: true });
-  if (fs.existsSync(originalPath)) {
-    throw new Error('A file already exists at the original path');
-  }
+  if (fs.existsSync(originalPath)) throw new Error('A file already exists at the original path');
   fs.renameSync(quarantinePath, originalPath);
   return originalPath;
 }
@@ -368,13 +208,4 @@ function deleteQuarantinedFile(quarantinePath) {
   return true;
 }
 
-module.exports = {
-  loadSignatureDB,
-  hashFile,
-  scanFile,
-  walkDirectory,
-  quarantineFile,
-  restoreQuarantinedFile,
-  deleteQuarantinedFile,
-  QUARANTINE_DIR
-};
+module.exports = { loadSignatureDB, hashFile, scanFile, walkDirectory, quarantineFile, restoreQuarantinedFile, deleteQuarantinedFile, QUARANTINE_DIR };

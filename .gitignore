@@ -1,14 +1,7 @@
 node_modules/
-.npm-cache/
 dist/
-build/
-
-# Electron runtime
+build/win-unpacked/
 .tmp-user-data/
-dist/
-release/
 *.log
-
-# Environment
 .env
 .env.*

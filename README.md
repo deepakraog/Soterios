@@ -1,120 +1,88 @@
-# Soterios
+# Soterios System Tools
 
-Soterios is a local-first Windows security and system health assistant. It helps everyday Windows users understand their device posture, review startup persistence, inspect suspicious processes, scan files with explainable local heuristics, quarantine risky files, and export security reports.
+A local-first Windows desktop app for system maintenance, monitoring, and basic security checks. Built with Electron.
 
-Soterios is built with Electron and runs its checks on the local machine. It does not upload files, telemetry, scan history, or reports.
+## What it does
 
-## Screenshots
+- **Security Dashboard** — Overall score from Defender status, firewall profiles, Windows Update, scan history, and system health
+- **Action Center** — Prioritized recommendations with direct navigation to the relevant page
+- **File Scanner** — SHA-256 signature matching, entropy analysis, heuristic risk scoring, quarantine, and scan history
+- **Passwords** — Cryptographically random password generator and offline strength checker
+- **Quarantine** — Manage isolated files: restore or permanently delete
+- **System Monitor** — Live CPU, memory, disk, and OS info with auto-refresh
+- **Processes** — Running processes with risk scoring
+- **Maintenance Scripts** — On-demand temp cleanup, disk space report, large files, browser cache, network report, and Windows services report
 
-Add product screenshots here before publishing:
+**No telemetry. No network calls. All data stays on your machine.**
 
-- Dashboard: `docs/screenshots/dashboard.png`
-- Scanner: `docs/screenshots/scanner.png`
-- Startup Apps: `docs/screenshots/startup.png`
-- Reports: `docs/screenshots/reports.png`
+## Build from source
 
-## Features
+### Prerequisites
+- Node.js 22+
+- Windows (for the Windows installer — cross-compilation is not supported by electron-builder for NSIS)
 
-- Security Dashboard with an overall 0-100 score calculated from real checks
-- Microsoft Defender status, real-time protection, signature age, and engine information
-- Windows Firewall profile status
-- Windows Update pending update summary
-- Startup and persistence scanner for Registry Run keys, Startup folders, Scheduled Tasks, and Windows services
-- Process monitor with parent PID, command line, executable path, Authenticode publisher, and suspicious process scoring
-- Local file scanner with SHA-256 hashing, signature matches, entropy analysis, suspicious location detection, unsigned executable checks, PE metadata analysis, and explainable risk scoring
-- Quarantine records with original path, hash, detection reason, timestamp, restore, delete, and history
-- Security report export to HTML and JSON
-- Plugin-style tool registry with metadata, versions, permissions, and isolated error handling
-- Local settings, app data, and crash/error logging
-- Windows installer with app icon, shortcuts, and uninstall support
-
-## Installation
-
-Download the Windows installer from the release artifacts and run:
-
-```text
-Soterios-Setup-1.0.1.exe
-```
-
-The installer supports Start Menu shortcuts, optional desktop shortcut creation, and uninstall through Windows Apps & Features.
-
-## Build From Source
-
-Install dependencies:
+### Steps
 
 ```bash
-npm ci
-```
+# 1. Install dependencies
+npm install
 
-Run locally:
-
-```bash
+# 2. Run locally
 npm start
-```
 
-Build an unpacked Windows app:
-
-```bash
+# 3. Build an unpacked Windows app (faster, no installer)
 npm run pack
-```
 
-Build the production Windows installer:
-
-```bash
+# 4. Build the production Windows installer (.exe)
 npm run dist:win
 ```
 
-Installer output is written to `dist/`.
+The installer is written to `dist/Soterios System Tools-Setup-1.0.1.exe`.
 
-## Architecture
+### GitHub Actions
 
-```text
-src/main/             Electron main process, IPC, app menu, logging
-src/preload/          Secure contextBridge API exposed to the renderer
-src/ui/               HTML, CSS, and page modules
-src/core/             Tool registry, plugin loader, app store
-src/tools/            Built-in security, system, scanner, report, and maintenance tools
-src/security/         Windows check helpers and shared risk scoring
-src/av/               Local file scanner and signature database
-src/scripts/          Safe maintenance script registry and implementations
-assets/               Product icons
+Push a tag starting with `v` to trigger an automated build and GitHub Release:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
-The renderer never gets direct Node access. Pages call the preload API, which invokes registered tools through IPC.
+The workflow is in `.github/workflows/release.yml`.
 
-## Plugin System
+## Project structure
 
-Tools are loaded from `src/tools/*.js`. A plugin exports either one tool object or an array of tool objects:
-
-```js
-module.exports = {
-  id: 'example-tool',
-  name: 'Example Tool',
-  description: 'Runs a local check.',
-  category: 'Security',
-  icon: 'shield',
-  version: '1.0.0',
-  permissions: ['system-read'],
-  run: async (args, ctx) => {
-    return { ok: true };
-  }
-};
+```
+main.js              Electron main process + IPC handlers
+preload.js           contextBridge API exposed to the renderer
+src/
+  core/              Tool registry, plugin loader, app data store
+  tools/             Security, system, scanner, report, and maintenance tools
+  security/          Windows check helpers (Defender, firewall, updates, signatures)
+  av/                Local file scanner and signature database
+  scripts/           Maintenance script registry + implementations
+  ui/
+    pages/           shell.html — the app's single HTML entry point
+    css/             style.css
+    js/              api.js, components.js, router.js, state.js
+    js/pages/        One JS module per page (dashboard, scanner, etc.)
+assets/              App icons
+build/               electron-builder resources (LICENSE.txt)
+.github/workflows/   CI/CD release workflow
 ```
 
-The loader registers valid tools, logs loading failures, and keeps the app running if a single plugin fails.
+## Adding signatures
 
-## Security Disclaimer
+Edit `src/av/signatureDB.json` and add entries:
 
-Soterios is an assistant, not a replacement for Microsoft Defender, enterprise EDR, or a dedicated antivirus product. Its scanner uses local signatures and transparent heuristics. A suspicious result means "review this" rather than proof of malware. A clean result does not guarantee a file is safe.
+```json
+{ "name": "My Signature", "hash": "<sha256-lowercase-hex>" }
+```
 
-Some Windows checks require permissions available to the current user. Missing permissions may produce "unavailable" status instead of a failure.
+The EICAR test hash is included by default so you can verify the scanner works end-to-end.
 
-## Roadmap
+## Security notes
 
-- Optional hash reputation providers with explicit user opt-in
-- Safer enable/disable workflows for startup entries
-- PDF report export
-- Signed production releases
-- Plugin marketplace folder with user-installed tools
-- More detailed PE version resource extraction
-- Automated UI smoke tests
+- Defender/firewall/update checks use PowerShell with three fallback strategies, so they work even without elevation
+- The file scanner is a local heuristic tool, not a replacement for Microsoft Defender
+- Quarantined files are moved (not copied) to `~/.soterios-quarantine`

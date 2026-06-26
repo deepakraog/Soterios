@@ -7,17 +7,12 @@ function levelFromScore(score) {
 }
 
 function scoreSignals(signals) {
-  const score = signals.reduce((total, signal) => total + (signal.points || 0), 0);
-  return Math.max(0, Math.min(100, score));
+  return Math.max(0, Math.min(100, signals.reduce((t, s) => t + (s.points || 0), 0)));
 }
 
 function makeRisk(signals) {
   const score = scoreSignals(signals);
-  return {
-    score,
-    level: levelFromScore(score),
-    signals: signals.filter((signal) => signal && signal.message)
-  };
+  return { score, level: levelFromScore(score), signals: signals.filter((s) => s && s.message) };
 }
 
 function recommendationForRisk(risk, subject = 'item') {
@@ -28,9 +23,4 @@ function recommendationForRisk(risk, subject = 'item') {
   return `Keep this ${subject} under observation.`;
 }
 
-module.exports = {
-  levelFromScore,
-  scoreSignals,
-  makeRisk,
-  recommendationForRisk
-};
+module.exports = { levelFromScore, scoreSignals, makeRisk, recommendationForRisk };

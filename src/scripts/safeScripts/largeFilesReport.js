@@ -16,45 +16,18 @@ module.exports = async function largeFilesReport(args = {}) {
   const minBytes = minSizeMB * 1024 * 1024;
   const maxResults = Number(args.maxResults || 40);
   const files = [];
-
   function walk(current, depth) {
     if (depth > 8) return;
     let entries;
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch (err) {
-      return;
-    }
-
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch (err) { return; }
     for (const entry of entries) {
       const fullPath = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        if (!shouldSkip(fullPath, entry.name)) walk(fullPath, depth + 1);
-        continue;
-      }
+      if (entry.isDirectory()) { if (!shouldSkip(fullPath, entry.name)) walk(fullPath, depth + 1); continue; }
       if (!entry.isFile()) continue;
-      try {
-        const stat = fs.statSync(fullPath);
-        if (stat.size >= minBytes) {
-          files.push({
-            path: fullPath,
-            sizeMB: +(stat.size / 1024 / 1024).toFixed(1),
-            modifiedAt: stat.mtime.toISOString()
-          });
-        }
-      } catch (err) {
-        // Ignore unreadable files.
-      }
+      try { const stat = fs.statSync(fullPath); if (stat.size >= minBytes) files.push({ path: fullPath, sizeMB: +(stat.size / 1024 / 1024).toFixed(1), modifiedAt: stat.mtime.toISOString() }); } catch (err) {}
     }
   }
-
   walk(root, 0);
   files.sort((a, b) => b.sizeMB - a.sizeMB);
-
-  return {
-    root,
-    minSizeMB,
-    count: files.length,
-    files: files.slice(0, maxResults)
-  };
+  return { root, minSizeMB, count: files.length, files: files.slice(0, maxResults) };
 };

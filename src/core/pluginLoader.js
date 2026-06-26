@@ -2,35 +2,27 @@ const fs = require('fs');
 const path = require('path');
 const toolRegistry = require('./toolRegistry');
 
-function loadPlugins() {
-  const toolsPath = path.join(__dirname, '../tools');
+const TOOLS_DIR = path.join(__dirname, '..', 'tools');
 
-  if (!fs.existsSync(toolsPath)) {
-    return [];
-  }
+async function loadAll() {
+  const files = fs
+    .readdirSync(TOOLS_DIR)
+    .filter((f) => f.endsWith('.js'));
 
-  const loadedTools = [];
-
-  for (const file of fs.readdirSync(toolsPath).filter((name) => name.endsWith('.js'))) {
+  for (const file of files) {
+    const fullPath = path.join(TOOLS_DIR, file);
     try {
-      const plugin = require(path.join(toolsPath, file));
-      const tools = Array.isArray(plugin) ? plugin : [plugin];
-      for (const tool of tools) {
-        if (tool && tool.id && typeof tool.run === 'function') {
-          toolRegistry.register(tool);
-          loadedTools.push(tool);
-        }
+      const mod = require(fullPath);
+      const toolDefs = Array.isArray(mod) ? mod : [mod];
+      for (const def of toolDefs) {
+        toolRegistry.register(def);
       }
     } catch (err) {
       console.error(`[pluginLoader] Failed to load tool module "${file}":`, err);
     }
   }
 
-  console.log(`[pluginLoader] Loaded ${loadedTools.length} tool(s)`);
-  return loadedTools;
+  console.log(`[pluginLoader] Loaded ${toolRegistry.list().length} tool(s)`);
 }
 
-module.exports = {
-  loadPlugins,
-  loadAll: loadPlugins
-};
+module.exports = { loadAll };

@@ -10,30 +10,18 @@ const DEFAULT_SETTINGS = {
     maxFileSizeMB: 512,
     includeCleanResults: false,
     excludedDirNames: [
-      'node_modules',
-      '.git',
-      'dist',
-      'build',
+      'node_modules', '.git', 'dist', 'build',
       'AppData\\Local\\Microsoft\\WindowsApps'
     ],
     defaultPath: ''
   },
-  dashboard: {
-    refreshSeconds: 30
-  }
+  dashboard: { refreshSeconds: 30 }
 };
 
 const DEFAULT_STORE = {
   version: 1,
   settings: DEFAULT_SETTINGS,
-  history: {
-    scans: [],
-    actions: [],
-    scripts: [],
-    health: [],
-    startup: [],
-    reports: []
-  },
+  history: { scans: [], actions: [], scripts: [], health: [] },
   quarantine: []
 };
 
@@ -42,14 +30,11 @@ function init(userDataPath) {
   ensureLoaded();
 }
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
 function mergeDefaults(value, defaults) {
   if (Array.isArray(defaults)) return Array.isArray(value) ? value : clone(defaults);
   if (!defaults || typeof defaults !== 'object') return value === undefined ? defaults : value;
-
   const result = { ...(value && typeof value === 'object' ? value : {}) };
   for (const [key, defaultValue] of Object.entries(defaults)) {
     result[key] = mergeDefaults(result[key], defaultValue);
@@ -60,7 +45,6 @@ function mergeDefaults(value, defaults) {
 function ensureLoaded() {
   if (!storePath) throw new Error('App store has not been initialized');
   if (cache) return cache;
-
   try {
     if (fs.existsSync(storePath)) {
       cache = mergeDefaults(JSON.parse(fs.readFileSync(storePath, 'utf-8')), DEFAULT_STORE);
@@ -70,15 +54,10 @@ function ensureLoaded() {
     }
   } catch (err) {
     const backup = `${storePath}.broken-${Date.now()}`;
-    try {
-      if (fs.existsSync(storePath)) fs.copyFileSync(storePath, backup);
-    } catch (_) {
-      // Ignore backup failures; a fresh store is safer than blocking startup.
-    }
+    try { if (fs.existsSync(storePath)) fs.copyFileSync(storePath, backup); } catch (_) {}
     cache = clone(DEFAULT_STORE);
     save();
   }
-
   return cache;
 }
 
@@ -88,15 +67,8 @@ function save() {
   fs.writeFileSync(storePath, JSON.stringify(cache, null, 2));
 }
 
-function getSnapshot() {
-  ensureLoaded();
-  return clone(cache);
-}
-
-function getSettings() {
-  ensureLoaded();
-  return clone(cache.settings);
-}
+function getSnapshot() { ensureLoaded(); return clone(cache); }
+function getSettings() { ensureLoaded(); return clone(cache.settings); }
 
 function updateSettings(patch) {
   ensureLoaded();
@@ -127,8 +99,7 @@ function addHistory(kind, entry, limit = 50) {
 
 function listHistory(kind, limit = 20) {
   ensureLoaded();
-  const rows = cache.history[kind] || [];
-  return clone(rows.slice(0, limit));
+  return clone((cache.history[kind] || []).slice(0, limit));
 }
 
 function addQuarantineRecord(record) {
@@ -148,34 +119,14 @@ function updateQuarantineRecord(id, patch) {
   ensureLoaded();
   const index = cache.quarantine.findIndex((item) => item.id === id);
   if (index === -1) throw new Error('Quarantine record not found');
-  cache.quarantine[index] = {
-    ...cache.quarantine[index],
-    ...patch,
-    updatedAt: new Date().toISOString()
-  };
+  cache.quarantine[index] = { ...cache.quarantine[index], ...patch, updatedAt: new Date().toISOString() };
   save();
   return clone(cache.quarantine[index]);
 }
 
-function listQuarantine() {
-  ensureLoaded();
-  return clone(cache.quarantine);
-}
-
-function getDataDir() {
-  if (!storePath) throw new Error('App store has not been initialized');
-  return path.dirname(storePath);
-}
+function listQuarantine() { ensureLoaded(); return clone(cache.quarantine); }
 
 module.exports = {
-  init,
-  getDataDir,
-  getSnapshot,
-  getSettings,
-  updateSettings,
-  addHistory,
-  listHistory,
-  addQuarantineRecord,
-  updateQuarantineRecord,
-  listQuarantine
+  init, getSnapshot, getSettings, updateSettings,
+  addHistory, listHistory, addQuarantineRecord, updateQuarantineRecord, listQuarantine
 };
