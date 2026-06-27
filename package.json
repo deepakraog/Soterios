@@ -61,7 +61,7 @@
       "icon": "assets/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "publisherName": "Chris Rivera",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "requestedExecutionLevel": "requireAdministrator"
     },
     "nsis": {
