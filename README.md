@@ -5,8 +5,8 @@
 <h1 align="center">Soterios</h1>
 
 <p align="center">
-  <strong>Open-source, local-first desktop security &amp; maintenance toolkit.</strong><br/>
-  Scan files, inspect processes, audit your system, manage your firewall, check passwords — all without telemetry.
+  <strong>Open-source, local-first Windows security and system maintenance suite.</strong><br/>
+  Scan files, inspect processes, audit your system, manage your firewall, test password strength, and check known breaches privately.
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ Pick the installer for your operating system from the [latest release](https://g
 ## Features
 
 - **Security Dashboard** — health score, scan status, warnings, ignored warnings, quarantine count, and real-time protection controls
-- **Virus Scan** — quick, full, and custom scans powered by ClamAV with definition updates, progress, cancellation, quarantine, and saved reports
+- **Malware Scan** — quick, full, and custom scans powered by ClamAV with definition updates, progress, cancellation, quarantine, and saved reports
 - **Reports** — browse, view, generate, and delete scan and security reports in-app
 - **Process Inspector** — risk-first sorting, then highest CPU/RAM impact within the same risk level
 - **Windows Security Audit** — Defender, UAC, Windows Update, BitLocker, PowerShell policy, and Secure Boot
