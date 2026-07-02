@@ -124,6 +124,10 @@ function registerIpcHandlers(mainWindow, services) {
     return processInspector.getProcesses();
   });
 
+  ipcMain.handle('process:kill', async (_event, pid) => {
+    return processInspector.killProcess(pid);
+  });
+
   // -- Audit & Firewall & Network --
   ipcMain.handle('audit:run', async (event) => {
     return services.systemAudit.runAudit((label) => {

@@ -8,6 +8,61 @@ function parseUtcTimestamp(value) {
   return new Date(value);
 }
 
+function humanizeKey(key) {
+  return String(key)
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatSnapshotPrimitive(value) {
+  if (value === null || value === undefined || value === '') return '<span class="page-subtitle">Not available</span>';
+  if (typeof value === 'boolean') {
+    return `<span class="log-tag ${value ? 'clean' : 'match'}">${value ? 'Yes' : 'No'}</span>`;
+  }
+  return escapeHtml(String(value));
+}
+
+function renderSnapshotValue(value) {
+  if (Array.isArray(value)) {
+    if (!value.length) return '<span class="page-subtitle">None</span>';
+    if (value.every((v) => v === null || typeof v !== 'object')) {
+      return `<ul style="margin:4px 0 0 18px; padding:0;">${value.map((v) => `<li>${formatSnapshotPrimitive(v)}</li>`).join('')}</ul>`;
+    }
+    return value.map((v) => `<div style="margin-top:6px; padding:8px; background:var(--bg-surface); border-radius:6px;">${renderSnapshotObject(v)}</div>`).join('');
+  }
+  if (value !== null && typeof value === 'object') {
+    return renderSnapshotObject(value);
+  }
+  return formatSnapshotPrimitive(value);
+}
+
+function renderSnapshotObject(obj) {
+  const entries = Object.entries(obj || {});
+  if (!entries.length) return '<span class="page-subtitle">No data.</span>';
+  return `<div style="display:flex; flex-direction:column; gap:6px;">
+    ${entries.map(([key, value]) => `
+      <div style="display:flex; justify-content:space-between; gap:12px; font-size:0.85rem;">
+        <span class="page-subtitle" style="flex-shrink:0;">${escapeHtml(humanizeKey(key))}</span>
+        <span style="text-align:right;">${renderSnapshotValue(value)}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderSystemSnapshot(system) {
+  const entries = Object.entries(system || {});
+  if (!entries.length) return '<div class="empty-state compact-empty">No system information recorded.</div>';
+  return `<div class="report-stats" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));">
+    ${entries.map(([key, value]) => `
+      <div class="stat-tile" style="text-align:left;">
+        <div class="stat-label">${escapeHtml(humanizeKey(key))}</div>
+        <div style="margin-top:8px;">${renderSnapshotValue(value)}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
 window.Pages.reports = {
   render(container) {
     container.innerHTML = `
@@ -98,7 +153,7 @@ window.Pages.reports = {
       <div class="report-section"><div class="panel-title">Recommendations</div>
         ${recommendations.length ? recommendations.map((i) => `<div class="log-row"><span class="log-tag ${i.level === 'danger' ? 'match' : i.level === 'warn' ? 'warn' : 'clean'}">${escapeHtml(i.level)}</span><span class="log-path"><strong>${escapeHtml(i.title)}</strong><br>${escapeHtml(i.detail || '')}</span></div>`).join('') : '<div class="empty-state compact-empty">No recommendations recorded.</div>'}
       </div>
-      <div class="report-section"><div class="panel-title">System Snapshot</div><pre>${escapeHtml(JSON.stringify(report.system || {}, null, 2))}</pre></div>`;
+      <div class="report-section"><div class="panel-title">System Snapshot</div>${renderSystemSnapshot(report.system)}</div>`;
   },
 
   async generate(container) {

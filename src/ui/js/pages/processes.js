@@ -46,9 +46,12 @@ window.Pages.processes = {
               <div style="font-weight:600; font-size:1.1rem;">${escapeHtml(p.name)} <span class="page-subtitle" style="font-size:0.85rem;">(PID ${escapeHtml(p.pid)})</span></div>
               <div class="path-chip" title="${escapeHtml(rawPath)}">${escapeHtml(shortPath)}</div>
             </div>
-            <div style="text-align:right;">
-              <div style="font-weight:600; font-size:1.1rem; color:${p.risk.score >= 35 ? 'var(--accent-danger)' : 'var(--accent-success)'}">${escapeHtml(p.risk.score)} Risk</div>
-              <div class="page-subtitle" style="font-size:0.8rem; text-transform:uppercase;">${escapeHtml(p.risk.level)}</div>
+            <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+              <div>
+                <div style="font-weight:600; font-size:1.1rem; color:${p.risk.score >= 35 ? 'var(--accent-danger)' : 'var(--accent-success)'}">${escapeHtml(p.risk.score)} Risk</div>
+                <div class="page-subtitle" style="font-size:0.8rem; text-transform:uppercase;">${escapeHtml(p.risk.level)}</div>
+              </div>
+              <button class="btn btn-sm" style="color: var(--accent-danger);" data-end-process="${escapeHtml(p.pid)}" data-process-name="${escapeHtml(p.name)}">End Process</button>
             </div>
           </div>
           <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--glass-border);">
@@ -61,6 +64,31 @@ window.Pages.processes = {
         </div>`;
       }).join('');
       listEl.innerHTML = `<div style="display:flex; flex-direction:column; gap:12px;">${rows || '<div class="empty-state">No processes returned.</div>'}</div><div class="loading-progress" style="margin-top:16px;"><div class="loading-progress-bar" style="width:100%;opacity:1"></div></div>`;
+
+      listEl.querySelectorAll('[data-end-process]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const pid = Number(btn.dataset.endProcess);
+          const name = btn.dataset.processName;
+          if (!window.confirm(`End process "${name}" (PID ${pid})? Unsaved work in this process will be lost, and ending the wrong process can cause instability.`)) return;
+          btn.disabled = true;
+          const originalLabel = btn.textContent;
+          btn.textContent = 'Ending...';
+          try {
+            const res = await window.api.invoke('process:kill', pid);
+            if (res && res.success) {
+              this.load(container);
+            } else {
+              alert('Failed to end process: ' + (res && res.error ? res.error : 'Unknown error.'));
+              btn.disabled = false;
+              btn.textContent = originalLabel;
+            }
+          } catch (err) {
+            alert('Failed to end process: ' + (err.message || String(err)));
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+          }
+        });
+      });
     } catch (err) { showToolError(listEl, err); }
     finally {
       setLoadingState(false);
