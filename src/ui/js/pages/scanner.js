@@ -71,6 +71,7 @@ window.Pages['scanner'] = {
     let isScanRunning = false;
     let activeAction = null;
     let showReportButton = false;
+    let scanHistoryEnabled = true;
     let alive = true;
     this.cleanups.push(() => { alive = false; });
 
@@ -118,20 +119,21 @@ window.Pages['scanner'] = {
       updateFooterButtons();
     }
 
-    function setComplete(success, filesScanned, threatsFound, note, canceled) {
+    function setComplete(success, filesScanned, threatsFound, note, canceled, historyEnabled = true) {
       if (!hasView()) return;
       setProgress(100);
       if (activeAction === 'virus') {
-        showReportButton = canceled || success;
+        showReportButton = historyEnabled && (canceled || success);
       } else {
         showReportButton = false;
       }
       setScanning(false);
       if (canceled) {
         if (scanStatus) scanStatus.textContent = 'Scan Canceled';
-        if (scanDetail) scanDetail.textContent = `${filesScanned} file(s) scanned before cancellation. A scan report was saved.`;
+        if (scanDetail) scanDetail.textContent = `${filesScanned} file(s) scanned before cancellation.` + (historyEnabled ? ' A scan report was saved.' : '');
         if (scanIcon) { scanIcon.className = 'status-icon warning';
         scanIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'; }
+        updateFooterButtons();
         return;
       }
       if (success) {
@@ -200,12 +202,18 @@ window.Pages['scanner'] = {
       }
     }));
 
-    this.cleanups.push(window.api.on('scan:complete', (data) => {
+    this.cleanups.push(window.api.on('scan:complete', async (data) => {
       if (!data) return;
       if (window.AppRouter && window.AppRouter.current && window.AppRouter.current() !== 'scanner') return;
       const canceled = data.status === 'canceled';
       if (data.scanType) activeAction = data.scanType === 'definitions' ? 'definitions' : 'virus';
-      setComplete(!canceled && data.status !== 'failed', data.filesScanned || 0, data.threatsFound || 0, data.note || data.error || '', canceled);
+      try {
+        const settings = await Api.getSettings();
+        scanHistoryEnabled = !!settings.features.scanHistory;
+      } catch (_) {
+        scanHistoryEnabled = true;
+      }
+      setComplete(!canceled && data.status !== 'failed', data.filesScanned || 0, data.threatsFound || 0, data.note || data.error || '', canceled, scanHistoryEnabled);
     }));
 
     updateDefinitionsButton.addEventListener('click', async () => {

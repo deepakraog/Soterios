@@ -28,6 +28,7 @@ class QuarantineManager {
 
       const res = this.db.addQuarantineRecord({
         originalPath,
+        quarantinePath,
         hash,
         engine,
         threatName,
@@ -45,10 +46,26 @@ class QuarantineManager {
     try {
       const stmt = this.db.db.prepare('SELECT * FROM quarantine WHERE id = ?');
       const record = stmt.get(id);
-      if (!record || record.status !== 'quarantined') return { success: false, error: 'Record not found or already processed' };
+      if (!record || record.status !== 'quarantined') {
+        return { success: false, error: 'Record not found or already processed' };
+      }
+      if (!record.quarantine_path || !fs.existsSync(record.quarantine_path)) {
+        return { success: false, error: 'Quarantined file is missing from disk.' };
+      }
 
-      // In real implementation, we'd store the safeName. Since we didn't in the schema,
-      // we'd need to alter schema or derive it. For now, assuming mock success.
+      const data = fs.readFileSync(record.quarantine_path);
+      for (let i = 0; i < data.length; i++) {
+        data[i] ^= 0x55; // reverse the same XOR used to quarantine
+      }
+
+      const destDir = path.dirname(record.original_path);
+      fs.mkdirSync(destDir, { recursive: true });
+      if (fs.existsSync(record.original_path)) {
+        return { success: false, error: 'A file already exists at the original location.' };
+      }
+      fs.writeFileSync(record.original_path, data);
+      fs.unlinkSync(record.quarantine_path);
+
       this.db.updateQuarantineStatus(id, 'restored');
       return { success: true };
     } catch (err) {
@@ -58,6 +75,14 @@ class QuarantineManager {
 
   async delete(id) {
     try {
+      const stmt = this.db.db.prepare('SELECT * FROM quarantine WHERE id = ?');
+      const record = stmt.get(id);
+      if (!record || record.status !== 'quarantined') {
+        return { success: false, error: 'Record not found or already processed' };
+      }
+      if (record.quarantine_path && fs.existsSync(record.quarantine_path)) {
+        fs.unlinkSync(record.quarantine_path);
+      }
       this.db.updateQuarantineStatus(id, 'deleted');
       return { success: true };
     } catch (err) {

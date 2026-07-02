@@ -50,6 +50,7 @@ class DatabaseService {
       CREATE TABLE IF NOT EXISTS quarantine (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         original_path TEXT,
+        quarantine_path TEXT,
         hash TEXT,
         engine TEXT,
         threat_name TEXT,
@@ -58,6 +59,13 @@ class DatabaseService {
         status TEXT DEFAULT 'quarantined'
       )
     `);
+
+    // Migration: add quarantine_path column if it doesn't exist (for existing databases)
+    const quarantineColumns = this.db.prepare("PRAGMA table_info(quarantine)").all();
+    const hasQuarantinePath = quarantineColumns.some((col) => col.name === 'quarantine_path');
+    if (!hasQuarantinePath) {
+      this.db.exec('ALTER TABLE quarantine ADD COLUMN quarantine_path TEXT');
+    }
 
     // Alerts Table
     this.db.exec(`
@@ -160,8 +168,8 @@ class DatabaseService {
   // --- Quarantine API ---
   addQuarantineRecord(record) {
     const stmt = this.db.prepare(`
-      INSERT INTO quarantine (original_path, hash, engine, threat_name, reason) 
-      VALUES (@originalPath, @hash, @engine, @threatName, @reason)
+      INSERT INTO quarantine (original_path, quarantine_path, hash, engine, threat_name, reason) 
+      VALUES (@originalPath, @quarantinePath, @hash, @engine, @threatName, @reason)
     `);
     return stmt.run(record);
   }

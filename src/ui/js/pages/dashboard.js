@@ -109,12 +109,20 @@ window.Pages['dashboard'] = {
     const healthIcon = document.getElementById('healthIcon');
     let isRtpActive = true;
 
+    function parseSqliteTimestamp(value) {
+      if (!value) return new Date(NaN);
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
+        return new Date(value.replace(' ', 'T') + 'Z');
+      }
+      return new Date(value);
+    }
+
     async function loadLastScan() {
       const el = container.querySelector('#lastScanTime');
       if (!el) return;
       const latest = await window.api.invoke('scanReports:latest');
       el.textContent = latest
-        ? `${new Date(latest.timestamp).toLocaleString()} (${latest.status})`
+        ? `${parseSqliteTimestamp(latest.timestamp).toLocaleString()} (${latest.status})`
         : 'Never';
     }
 
@@ -172,6 +180,27 @@ window.Pages['dashboard'] = {
         }));
       } catch (err) {
         warningList.innerHTML = `<div class="empty-state">Error: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function errorMessage(err) {
+      try {
+        if (!err) return '';
+
+        const message = typeof err === 'string'
+          ? err
+          : err.message || String(err);
+
+        // Remove Electron IPC wrapper:
+        const match = message.match(/Error invoking remote method ['"].*?['"]:\s*(.*)/);
+
+        if (match && match[1]) {
+          return match[1];
+        }
+
+        return message;
+      } catch (_) {
+        return 'An unknown error occurred.';
       }
     }
 
@@ -243,7 +272,7 @@ window.Pages['dashboard'] = {
         setRtpState(status);
       } catch (err) {
         setRtpState(previous);
-        alert(err.message || 'Unable to update real-time protection.');
+        alert(errorMessage(err) || 'Unable to update real-time protection.');
       } finally {
         btnToggleRtp.disabled = false;
       }
@@ -263,7 +292,7 @@ window.Pages['dashboard'] = {
           } else if (container.querySelector('#lastScanTime')) {
             await loadLastScan();
           }
-        } catch(e) {
+        } catch (e) {
           alert('Scan failed: ' + e);
         } finally {
           btnQuickScan.disabled = false;
@@ -285,7 +314,7 @@ window.Pages['dashboard'] = {
           } else if (container.querySelector('#lastScanTime')) {
             await loadLastScan();
           }
-        } catch(e) {
+        } catch (e) {
           alert('Scan failed: ' + e);
         } finally {
           btnFullScan.disabled = false;
@@ -305,7 +334,7 @@ window.Pages['dashboard'] = {
           threatsCountEl.textContent = quarantineList.length;
         }
       }
-    } catch(e) {
+    } catch (e) {
       console.warn('Failed to load dashboard data:', e);
     }
   }

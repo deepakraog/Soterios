@@ -86,8 +86,9 @@ const Api = {
     if (patch.features) {
       const f = patch.features;
       if (Object.prototype.hasOwnProperty.call(f, 'realtimeProtection')) {
-        await window.api.invoke('db:setSetting', 'feature.realtimeProtection', !!f.realtimeProtection);
-        await window.api.invoke('rtp:toggle', !!f.realtimeProtection);
+        const enable = !!f.realtimeProtection;
+        const result = await window.api.invoke('rtp:toggle', enable);
+        await window.api.invoke('db:setSetting', 'feature.realtimeProtection', !!result);
       }
       if (Object.prototype.hasOwnProperty.call(f, 'autoReports')) await window.api.invoke('db:setSetting', 'feature.autoReports', !!f.autoReports);
       if (Object.prototype.hasOwnProperty.call(f, 'scanHistory')) await window.api.invoke('db:setSetting', 'feature.scanHistory', !!f.scanHistory);

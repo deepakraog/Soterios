@@ -32,30 +32,38 @@ window.Pages['quarantine'] = {
             <div class="page-subtitle" style="font-size: 0.75rem;">${item.date_quarantined} | ${item.engine}</div>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn" onclick="restoreQuarantine(${item.id})">Restore</button>
-            <button class="btn" style="color: var(--accent-danger);" onclick="deleteQuarantine(${item.id})">Delete</button>
+            <button class="btn" data-restore="${item.id}">Restore</button>
+            <button class="btn" style="color: var(--accent-danger);" data-delete="${item.id}">Delete</button>
           </div>
         `;
         listContainer.appendChild(itemEl);
+      });
+
+      // Attach event listeners to restore buttons
+      listContainer.querySelectorAll('[data-restore]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            const id = Number(btn.dataset.restore);
+            const res = await window.api.invoke('quarantine:restore', id);
+            if (res.success) this.render(container);
+            else alert('Failed to restore: ' + res.error);
+          } catch (e) { alert(e.message || String(e)); }
+        });
+      });
+
+      // Attach event listeners to delete buttons
+      listContainer.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            const id = Number(btn.dataset.delete);
+            const res = await window.api.invoke('quarantine:delete', id);
+            if (res.success) this.render(container);
+            else alert('Failed to delete: ' + res.error);
+          } catch (e) { alert(e.message || String(e)); }
+        });
       });
     } catch (e) {
       document.getElementById('quarantineList').innerHTML = `<div class="empty-state">Failed to load quarantine: ${e.message}</div>`;
     }
   }
-};
-
-window.restoreQuarantine = async (id) => {
-  try {
-    const res = await window.api.invoke('quarantine:restore', id);
-    if (res.success) window.AppRouter.navigate('quarantine');
-    else alert('Failed to restore: ' + res.error);
-  } catch (e) { alert(e); }
-};
-
-window.deleteQuarantine = async (id) => {
-  try {
-    const res = await window.api.invoke('quarantine:delete', id);
-    if (res.success) window.AppRouter.navigate('quarantine');
-    else alert('Failed to delete: ' + res.error);
-  } catch (e) { alert(e); }
 };

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 function esc(v) {
   return String(v ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -135,6 +136,28 @@ class ScanEngine {
             this._notes = this._notes || [];
             this._notes.push(result.note);
           }
+
+          // Quarantine each newly-found threat from this iteration
+          if (Array.isArray(result.threats)) {
+            for (const threat of result.threats) {
+              try {
+                this.eventBus.emit('scan:progress', { scanType, pct: basePct, message: 'Quarantining ' + threat.name + '...' });
+                
+                const fileBuffer = fs.readFileSync(threat.path);
+                const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+                
+                const qResult = await this.quarantineManager.quarantine(
+                  threat.path, hash, 'ClamAV', threat.name, 'Detected during ' + scanType + ' scan'
+                );
+                
+                if (!qResult.success) {
+                  errors.push(`Failed to quarantine ${threat.path}: ${qResult.error}`);
+                }
+              } catch (qErr) {
+                errors.push(`Failed to quarantine ${threat.path}: ${qErr.message}`);
+              }
+            }
+          }
         } else {
           if (wasCanceled) errors.push('Scan canceled by user.');
           else errors.push(result.error || 'Scan failed for ' + targetPath);
@@ -157,7 +180,8 @@ class ScanEngine {
         threatsFound: totalThreatsFound,
         durationMs,
         threats,
-        errors
+        errors,
+        details: { threats, errors }
       });
       try {
         if (this.db.getSetting('feature.scanHistory', true)) {
@@ -201,6 +225,11 @@ class ScanEngine {
   }
 
   saveScanReport(report) {
+    const shouldSaveHistory = this.db.getSetting('feature.scanHistory', true);
+    if (!shouldSaveHistory) {
+      return report;
+    }
+
     const dir = scanReportsDir();
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const base = `scan-${report.scanType}-${stamp}`;
@@ -213,13 +242,13 @@ class ScanEngine {
       this.db.addScanReport({
         scanType: report.scanType,
         status: report.status,
-        targetPaths: report.targetPaths,
-        filesScanned: report.filesScanned,
-        threatsFound: report.threatsFound,
-        durationMs: report.durationMs,
+        targetPaths: report.targetPaths || [],
+        filesScanned: report.filesScanned || 0,
+        threatsFound: report.threatsFound || 0,
+        durationMs: report.durationMs || 0,
         jsonPath,
         htmlPath,
-        details: report
+        details: report.details || {}
       });
     } catch (err) {
       console.warn('Unable to save scan report record:', err.message || err);

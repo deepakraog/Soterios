@@ -1,5 +1,13 @@
 window.Pages = window.Pages || {};
 
+function parseUtcTimestamp(value) {
+  if (!value) return new Date(NaN);
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
+    return new Date(value.replace(' ', 'T') + 'Z');
+  }
+  return new Date(value);
+}
+
 window.Pages.reports = {
   render(container) {
     container.innerHTML = `
@@ -122,7 +130,7 @@ window.Pages.reports = {
           <div class="history-item">
             <div style="min-width:0;">
               <div class="history-title">${escapeHtml(r.scan_type)} scan <span class="log-tag ${statusClass}">${escapeHtml(r.status)}</span></div>
-              <div class="history-meta">${escapeHtml(new Date(r.timestamp).toLocaleString())} | ${r.files_scanned} file(s), ${r.threats_found} threat(s)</div>
+              <div class="history-meta">${escapeHtml(parseUtcTimestamp(r.timestamp).toLocaleString())} | ${r.files_scanned} file(s), ${r.threats_found} threat(s)</div>
             </div>
             <div style="display:flex; gap:6px;">
               <button class="btn btn-sm open-scan-report" data-id="${escapeHtml(r.id)}">View</button>
@@ -133,7 +141,7 @@ window.Pages.reports = {
       el.querySelectorAll('.open-scan-report').forEach((btn) => {
         btn.addEventListener('click', () => {
           const report = reports.find((r) => String(r.id) === String(btn.dataset.id));
-          if (report) this.showViewer(container, `${report.scan_type} scan - ${new Date(report.timestamp).toLocaleString()}`, this.renderScanReport(report));
+          if (report) this.showViewer(container, `${report.scan_type} scan - ${parseUtcTimestamp(report.timestamp).toLocaleString()}`, this.renderScanReport(report));
         });
       });
       el.querySelectorAll('.delete-scan-report').forEach((btn) => {

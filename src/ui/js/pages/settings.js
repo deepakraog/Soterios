@@ -134,20 +134,25 @@ window.Pages.settings = {
       finally { setButtonLoading(btn, false); }
     });
 
-    async function saveFeature(key, value) {
+    async function saveFeature(key, value, input) {
       const status = container.querySelector('#settingsStatus');
+      status.textContent = '';
+      input.disabled = true;
       try {
         await Api.updateSettings({ features: { [key]: value } });
         status.textContent = 'Feature toggle saved.';
       } catch (err) {
+        input.checked = !value;
         status.textContent = err.message || String(err);
+      } finally {
+        input.disabled = false;
       }
     }
 
-    container.querySelector('#rtpToggle').addEventListener('change', (event) => saveFeature('realtimeProtection', event.target.checked));
-    container.querySelector('#autoReportToggle').addEventListener('change', (event) => saveFeature('autoReports', event.target.checked));
-    container.querySelector('#scanHistoryToggle').addEventListener('change', (event) => saveFeature('scanHistory', event.target.checked));
-    container.querySelector('#sysmonToggle').addEventListener('change', (event) => saveFeature('systemMonitoring', event.target.checked));
+    container.querySelector('#rtpToggle').addEventListener('change', (event) => saveFeature('realtimeProtection', event.target.checked, event.target));
+    container.querySelector('#autoReportToggle').addEventListener('change', (event) => saveFeature('autoReports', event.target.checked, event.target));
+    container.querySelector('#scanHistoryToggle').addEventListener('change', (event) => saveFeature('scanHistory', event.target.checked, event.target));
+    container.querySelector('#sysmonToggle').addEventListener('change', (event) => saveFeature('systemMonitoring', event.target.checked, event.target));
   },
 
   destroy() {
