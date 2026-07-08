@@ -7,14 +7,30 @@ function run(cmd) {
   return new Promise((resolve) => { exec(cmd, { timeout: 15000, maxBuffer: 5 * 1024 * 1024 }, (err, stdout) => { if (err) resolve(null); else resolve(stdout); }); });
 }
 
-function parseRegOutput(out) {
+function extractExe(cmd) {
+  if (!cmd) return null;
+  // Quoted path: "C:\path\to\exe.exe" args
+  const q = cmd.match(/^"([^"]+)"/);
+  if (q) return q[1];
+  // Unquoted path - take until first space, but handle drive letter
+  // e.g. C:\path\to\exe.exe --arg
+  const w = cmd.match(/^([A-Za-z]:[^\s]*)/);
+  if (w) return w[1];
+  // Fallback: first word (for bare filenames like rundll32.exe)
+  const f = cmd.match(/^([^\s]+)/);
+  return f ? f[1] : null;
+}
+
+function parseRegOutput(out, scope) {
   const items = [];
   if (!out) return items;
   const lines = out.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  // reg query output often has lines like: "<Name>    REG_SZ    <Value>"
   for (const line of lines) {
     const m = line.match(/^([^\s].*?)\s+REG_\w+\s+(.*)$/i);
-    if (m) items.push({ name: m[1].trim(), command: m[2].trim(), source: 'registry' });
+    if (m) {
+      const command = m[2].trim();
+      items.push({ name: m[1].trim(), command, exePath: extractExe(command), source: 'registry', scope });
+    }
   }
   return items;
 }
@@ -30,8 +46,8 @@ module.exports = async function listStartupItems() {
     // Check registry Run keys (HKLM and HKCU)
     const hklm = await run('reg query "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" 2>nul');
     const hkcu = await run('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" 2>nul');
-    items.push(...parseRegOutput(hklm));
-    items.push(...parseRegOutput(hkcu));
+    items.push(...parseRegOutput(hklm, 'HKLM'));
+    items.push(...parseRegOutput(hkcu, 'HKCU'));
 
     // Also check Startup folders
     try {
@@ -58,5 +74,5 @@ module.exports = async function listStartupItems() {
     if (out) out.split('\n').filter(Boolean).forEach((name) => items.push({ name, source: 'autostart' }));
   }
 
-  return { platform, itemCount: items.length, items, note: 'This is a read-only report. No startup items were modified.' };
+  return { platform, itemCount: items.length, items };
 };

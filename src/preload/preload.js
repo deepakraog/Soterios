@@ -30,5 +30,9 @@ contextBridge.exposeInMainWorld('soterios', {
   },
   app: {
     info: () => ipcRenderer.invoke('app:info')
+  },
+  startup: {
+    getIcons: (exePaths) => ipcRenderer.invoke('startup:getIcons', exePaths),
+    toggle: (item, enable) => ipcRenderer.invoke('startup:toggle', item, enable)
   }
 });

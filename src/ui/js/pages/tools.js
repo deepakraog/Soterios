@@ -1,5 +1,6 @@
 window.Pages = window.Pages || {};
 window.Pages.tools = {
+  _startupItems: [],
   allowedScripts: [
     'clear-temp-files',
     'large-files-report',
@@ -124,6 +125,10 @@ window.Pages.tools = {
       output.innerHTML = this.renderOutput(scriptId, result, when);
       if (scriptId === 'large-files-report') this.wireLargeFilesActions(container);
       if (scriptId === 'browser-cache-report') this.wireBrowserCacheActions(container);
+      if (scriptId === 'list-startup-items' && Array.isArray(result.items)) {
+        this._startupItems = result.items;
+        this.wireStartupActions(container);
+      }
       setButtonLoading(btn, false);
       btn.textContent = 'Completed';
       btn.classList.add('btn-success');
@@ -184,16 +189,18 @@ window.Pages.tools = {
           </div>`).join('');
       }
     } else if (scriptId === 'list-startup-items' && Array.isArray(result.items)) {
-      html += `<div class="log-row"><span class="log-tag info">${result.itemCount || result.items.length}</span><span class="log-path">${escapeHtml(result.note || 'Startup entries')}</span></div>`;
-      // show up to 12 readable items focusing on name and source/command
-      const list = result.items.slice(0, 12).map(item => {
+      html += `<div class="log-row"><span class="log-tag info">${result.itemCount || result.items.length}</span><span class="log-path">Startup entries — click a toggle to disable/enable an item</span></div>`;
+      result.items.forEach((item, idx) => {
         const name = item.name || item.raw || item.path || 'unknown';
-        const src = item.source || (item.command ? 'registry' : 'unknown');
         const cmd = item.command || item.path || item.raw || '';
-        return `<div class="log-row"><span class="log-tag info">${escapeHtml(src)}</span><span class="log-path">${escapeHtml(truncate(name + (cmd ? ' — ' + cmd : ''), 140))}</span></div>`;
-      }).join('');
-      html += list;
-      if (result.items.length > 12) html += `<div class="log-row"><span class="log-path">... ${escapeHtml(String(result.items.length - 12))} more items omitted</span></div>`;
+        const displayCmd = truncate(name + (cmd && cmd !== name ? ' — ' + cmd : ''), 200);
+        html += `<div class="log-row startup-row" data-idx="${idx}">
+          <img class="startup-icon" data-exe="${escapeHtml(item.exePath || '')}" src="" alt="" />
+          <span class="log-tag info">${escapeHtml(item.source || 'unknown')}</span>
+          <span class="log-path" style="flex:1;">${escapeHtml(displayCmd)}</span>
+          <button class="btn btn-sm startup-toggle-btn" data-idx="${idx}">Disable</button>
+        </div>`;
+      });
     } else if (scriptId === 'windows-services-report') {
       html += `<div class="log-row"><span class="log-tag info">${result.autoStartCount || 0}</span><span class="log-path">Auto-start services, ${result.flaggedCount || 0} flagged</span></div>`;
       html += (result.flagged || []).map(s => `<div class="log-row" style="${this.lazyRowStyle}"><span class="log-tag match">flag</span><span class="log-path">${escapeHtml(s.displayName || s.name)} ${s.pathName ? '(' + escapeHtml(s.pathName) + ')' : ''}</span></div>`).join('');
@@ -268,5 +275,53 @@ window.Pages.tools = {
 
     if (clearAllBtn) clearAllBtn.addEventListener('click', () => runClear([], clearAllBtn));
     singleBtns.forEach((btn) => btn.addEventListener('click', () => runClear([btn.dataset.browser], btn)));
+  },
+
+  wireStartupActions(container) {
+    const output = container.querySelector('#toolOutput');
+
+    // Load icons
+    const iconImgs = output.querySelectorAll('.startup-icon[data-exe]');
+    const exePaths = [...new Set([...iconImgs].map((img) => img.dataset.exe).filter(Boolean))];
+    if (exePaths.length) {
+      window.api.invoke('startup:getIcons', exePaths).then((icons) => {
+        iconImgs.forEach((img) => {
+          const dataUrl = icons && icons[img.dataset.exe];
+          if (dataUrl) img.src = dataUrl;
+          else img.style.display = 'none';
+        });
+      }).catch(() => {
+        iconImgs.forEach((img) => img.style.display = 'none');
+      });
+    } else {
+      iconImgs.forEach((img) => img.style.display = 'none');
+    }
+
+    // Wire toggle buttons
+    output.querySelectorAll('.startup-toggle-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.idx, 10);
+        const item = this._startupItems[idx];
+        if (!item) return;
+        const currentlyEnabled = btn.dataset.enabled !== 'false';
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          const result = await window.api.invoke('startup:toggle', item, !currentlyEnabled);
+          if (result.ok) {
+            btn.dataset.enabled = String(!currentlyEnabled);
+            btn.textContent = !currentlyEnabled ? 'Disable' : 'Enable';
+            btn.classList.toggle('btn-success', !currentlyEnabled);
+          } else {
+            alert(result.error || 'Failed to toggle startup item');
+            btn.textContent = currentlyEnabled ? 'Disable' : 'Enable';
+          }
+        } catch (err) {
+          alert(err.message || 'Failed to toggle startup item');
+          btn.textContent = currentlyEnabled ? 'Disable' : 'Enable';
+        }
+        btn.disabled = false;
+      });
+    });
   }
 };
