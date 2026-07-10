@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <strong>Open-source, local-first desktop security &amp; maintenance toolkit.</strong><br/>
-  Scan files, inspect processes, audit your system, manage your firewall, check passwords — all without telemetry.
+  <strong>Open-source, local-first security and system maintenance suite optimized for Windows.</strong><br/>
+  Scan files, inspect processes, audit your system, manage your firewall, test password strength, and check known breaches privately.
 </p>
 
 <p align="center">
@@ -151,6 +151,29 @@ Contributions are welcome! To get started:
 Please make sure your changes work locally (`npm start`) and pass linting before submitting.
 
 ---
+
+## Project Status & Contributions
+
+Soterios is currently in early development.
+
+Some features are fully functional, while others are still being implemented or refined. The project is actively evolving and may contain incomplete or experimental systems.
+
+Because of this, feedback and contributions are especially valuable.
+
+### Areas that need help
+
+- Stabilizing and improving the malware scanning system
+- Expanding and refining system audit coverage
+- Improving UI consistency and user experience
+- Performance optimization across system monitoring tools
+- Strengthening overall architecture and modularity
+- Identifying and fixing bugs
+
+### How you can contribute
+
+If you're interested in system tools, security software, or Electron-based applications, contributions, testing, and feedback are welcome as the project grows.
+
+Even small improvements, bug reports, or suggestions are appreciated.
 
 ## License
 

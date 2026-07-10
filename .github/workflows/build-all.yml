@@ -15,6 +15,8 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
@@ -29,6 +31,8 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run dist:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: linux-installer
@@ -43,6 +47,8 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run dist:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: macos-installer
