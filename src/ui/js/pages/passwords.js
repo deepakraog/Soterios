@@ -167,6 +167,6 @@ window.Pages.passwords = {
 function renderStrengthMeter(el, strength, showIssues) {
   const color = strength.label === 'Very Strong' || strength.label === 'Strong' ? 'var(--ok)' : strength.label === 'Moderate' ? 'var(--warn)' : 'var(--danger)';
   const issuesHtml = (showIssues && strength.issues && strength.issues.length) ? `<ul class="issue-list">${strength.issues.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>` : '';
-  const crackHtml = strength.crackTimeEstimate ? `<div style="font-size:11px; color:var(--text-dim); margin-top:6px;">Estimated time to crack (offline attack): <strong>${escapeHtml(strength.crackTimeEstimate)}</strong></div>` : '';
+  const crackHtml = strength.crackTimeEstimate ? `<div style="font-size:11px; color:var(--text-dim); margin-top:6px;">Estimated time to crack: <strong>${escapeHtml(strength.crackTimeEstimate)}</strong></div>` : '';
   el.innerHTML = `<div class="flex-between" style="font-size:12px;"><span style="color:${color};font-weight:600;">${strength.label}</span><span class="mono" style="color:var(--text-dim);">~${strength.entropyBits} bits entropy</span></div><div class="strength-meter-track"><div class="strength-meter-fill" style="width:${strength.score}%;background:${color};"></div></div>${crackHtml}${issuesHtml}`;
 }

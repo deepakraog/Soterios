@@ -8,7 +8,26 @@ class RealTimeWatcher {
     this.audit = new SystemAudit();
   }
 
+  async isDefenderAvailable() {
+    try {
+      const result = await this.audit.runPowerShell('Get-MpComputerStatus | Select-Object -ExpandProperty RealTimeProtectionEnabled');
+      return result.ok;
+    } catch (err) {
+      console.error('Windows Defender availability check failed:', err);
+      return false;
+    }
+  }
+
   async verifyRealtimeState(expected) {
+    const isAvailable = await this.isDefenderAvailable();
+    if (!isAvailable) {
+      return {
+        ok: false,
+        enabled: null,
+        error: 'Windows Defender is not available or not installed on this system.'
+      };
+    }
+
     const result = await this.audit.runPowerShell('Get-MpComputerStatus | Select-Object -ExpandProperty RealTimeProtectionEnabled');
     if (!result.ok) {
       return {
@@ -34,6 +53,15 @@ class RealTimeWatcher {
   }
 
   async start() {
+    const isAvailable = await this.isDefenderAvailable();
+    if (!isAvailable) {
+      return {
+        ok: false,
+        enabled: null,
+        error: 'Windows Defender is not available or not installed on this system.'
+      };
+    }
+
     const result = await this.audit.runPowerShell('Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction Stop');
     if (!result.ok) {
       return {
@@ -47,6 +75,15 @@ class RealTimeWatcher {
   }
 
   async stop() {
+    const isAvailable = await this.isDefenderAvailable();
+    if (!isAvailable) {
+      return {
+        ok: false,
+        enabled: null,
+        error: 'Windows Defender is not available or not installed on this system.'
+      };
+    }
+
     const result = await this.audit.runPowerShell('Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop');
     if (!result.ok) {
       return {
@@ -60,6 +97,15 @@ class RealTimeWatcher {
   }
 
   async getStatus() {
+    const isAvailable = await this.isDefenderAvailable();
+    if (!isAvailable) {
+      return {
+        ok: false,
+        enabled: null,
+        error: 'Windows Defender is not available or not installed on this system.'
+      };
+    }
+
     const result = await this.audit.runPowerShell('Get-MpComputerStatus | Select-Object -ExpandProperty RealTimeProtectionEnabled');
     if (!result.ok) {
       return {

@@ -138,6 +138,8 @@ body {
   line-height: 1.5;
   overflow: hidden;
   background: var(--body-gradient);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .app-shell {
@@ -156,6 +158,15 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 10;
+  overflow-y: auto;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 12px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--bg-surface-hover);
+  border-radius: 4px;
 }
 
 .brand {
@@ -201,6 +212,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 600;
+}
+
+.brand-wordmark {
+  filter: brightness(0) invert(1);
+}
+
+[data-theme="light"] .brand-wordmark {
+  filter: brightness(0);
 }
 
 .nav {
@@ -310,7 +329,7 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 16px;
   height: 12px;
 }
 ::-webkit-scrollbar-track {
@@ -861,8 +880,9 @@ body {
 .mono { font-family: 'Cascadia Code', 'Fira Code', monospace; }
 
 /* Global scan indicator (sidebar) */
-.scan-indicator { margin: 0 12px 8px; padding: 10px 12px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+.scan-indicator { margin: 0 0 4px; padding: 10px 12px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; cursor: pointer; transition: background 0.2s, margin 0.3s ease; }
 .scan-indicator:hover { background: rgba(99,102,241,0.14); }
+.scan-indicator:not([style*="display: none"]) { margin-bottom: 4px; }
 .scan-indicator-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .scan-indicator-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-primary); flex-shrink: 0; animation: scanPulse 1.2s ease-in-out infinite; }
 @keyframes scanPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }

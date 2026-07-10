@@ -266,6 +266,7 @@ stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="r
     async function loadWarnings() {
       const warningList = document.getElementById('warningList');
       const ignoredList = document.getElementById('ignoredWarningList');
+      if (!warningList || !ignoredList) return;
       try {
         const data = await Api.runTool('security-overview', {});
         const warnings = (data.recommendations || []).filter((i) => i.level === 'warn' || i.level === 'danger');
@@ -316,7 +317,7 @@ stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="r
           }
         }));
       } catch (err) {
-        warningList.innerHTML = `<div class="empty-state">Error: ${escapeHtml(err.message)}</div>`;
+        if (warningList) warningList.innerHTML = `<div class="empty-state">Error: ${escapeHtml(err.message)}</div>`;
       }
     }
 

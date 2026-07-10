@@ -16,14 +16,13 @@ class QuarantineManager {
       const fileName = path.basename(originalPath);
       const safeName = `${Date.now()}_${fileName}.encrypted`;
       const quarantinePath = path.join(this.quarantineDir, safeName);
-      
+
       // Basic XOR encryption to prevent accidental execution
       const data = fs.readFileSync(originalPath);
       for (let i = 0; i < data.length; i++) {
         data[i] ^= 0x55;
       }
       fs.writeFileSync(quarantinePath, data);
-      fs.unlinkSync(originalPath);
 
       const res = this.db.addQuarantineRecord({
         originalPath,
@@ -34,9 +33,20 @@ class QuarantineManager {
         reason
       });
 
+      // Only delete original file after DB record is successfully created
+      fs.unlinkSync(originalPath);
+
       return { success: true, id: res.lastInsertRowid };
     } catch (err) {
       console.error('Failed to quarantine:', err);
+      // If DB failed but we already encrypted the file, clean it up
+      try {
+        if (quarantinePath && fs.existsSync(quarantinePath)) {
+          fs.unlinkSync(quarantinePath);
+        }
+      } catch (cleanupErr) {
+        console.error('Failed to cleanup quarantined file after error:', cleanupErr);
+      }
       return { success: false, error: err.message };
     }
   }

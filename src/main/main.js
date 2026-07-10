@@ -14,7 +14,7 @@ try {
   const tempDir = path.join(userDataPath, 'temp');
 
   for (const dirPath of [userDataPath, cacheDir, tempDir]) {
-    try { fs.mkdirSync(dirPath, { recursive: true }); } catch (_) { }
+    try { fs.mkdirSync(dirPath, { recursive: true }); } catch (err) { logLine('warn', 'Failed to create directory: ' + dirPath, { error: err.message }); }
   }
 
   app.setPath('userData', userDataPath);
@@ -408,7 +408,8 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#0e1117',
     title: 'Soterios',
-    icon: createIcon(),   
+    icon: createIcon(),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,

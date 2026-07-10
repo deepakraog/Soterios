@@ -35,6 +35,7 @@
       el.style.borderColor = 'rgba(234,179,8,0.35)';
       el.style.background = 'rgba(234,179,8,0.07)';
       if (dot) dot.style.background = '#eab308';
+      if (pct) pct.style.color = '#eab308';
     } else if (status === 'failed') {
       fill.style.width = '100%';
       pct.textContent = '100%';
@@ -62,6 +63,7 @@
       el.style.borderColor = '';
       el.style.background = '';
       if (dot) dot.style.background = '';
+      if (pct) pct.style.color = '';
       label.textContent = 'Scanning\u2026';
       setProgress(0, '');
     }, 3000);

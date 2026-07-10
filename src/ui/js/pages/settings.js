@@ -53,7 +53,7 @@ window.Pages.settings = {
           <div class="toggle-row">
             <div>
               <div class="toggle-label">External Lookups</div>
-              <div class="toggle-desc">Allow breach checks against HIBP and XposedOrNot (disable for privacy-focused use)</div>
+              <div class="toggle-desc">Allow breach checks using HIBP and XposedOrNot</div>
             </div>
             <label class="toggle"><input type="checkbox" id="externalLookupsToggle" ${settings.features.externalLookups ? 'checked' : ''} /><span class="toggle-slider"></span></label>
           </div>
@@ -61,7 +61,7 @@ window.Pages.settings = {
           <div class="toggle-row">
             <div>
               <div class="toggle-label">Geolocation Heat Map</div>
-              <div class="toggle-desc">Resolve IP addresses to display a world map of active connections (uses ipwho.is)</div>
+              <div class="toggle-desc">Resolve IP addresses to display a world map of active connections</div>
             </div>
             <label class="toggle"><input type="checkbox" id="geoLookupToggle" ${settings.features.geoLookup ? 'checked' : ''} /><span class="toggle-slider"></span></label>
           </div>

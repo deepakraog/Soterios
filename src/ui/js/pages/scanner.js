@@ -7,6 +7,7 @@ window.Pages['scanner'] = {
   },
   render(container) {
 container.innerHTML = `
+      <div style="overflow-y: auto; max-height: calc(100vh - 80px); padding-right: 8px;">
       <header class="page-header">
         <h1 class="page-title">Malware Scan</h1>
         <p class="page-subtitle">Scan your system for malware and threats using ClamAV</p>
@@ -89,6 +90,7 @@ container.innerHTML = `
         <div class="stat-bar-track" id="progressTrack" style="margin-top:12px; height:6px; border-radius:3px; overflow:hidden;">
           <div class="stat-bar-fill" id="scanProgressFill" style="width:0%; height:100%; background:var(--accent-primary); transition: width 0.3s ease;"></div>
         </div>
+      </div>
       </div>`;
 
     const progressFill = document.getElementById('scanProgressFill');
