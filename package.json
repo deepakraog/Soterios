@@ -27,8 +27,8 @@
     "adm-zip": "^0.5.17",
     "ajv-keywords": "^5.1.0",
     "axios": "^1.18.1",
-    "electron": "^31.7.7",
-    "electron-builder": "^24.13.3",
+    "electron": "^42.6.1",
+    "electron-builder": "^26.15.3",
     "electronmon": "^2.0.4"
   },
   "build": {
