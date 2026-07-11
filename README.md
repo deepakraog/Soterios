@@ -1,13 +1,9 @@
 <p align="center">
-  <img src="assets/icon.png" alt="Soterios" width="128" />
+  <img src="assets/soteriosLogo.png" alt="Soterios" width="300" />
 </p>
 
 <p align="center">
-  <img src="assets/soteriosTextLogo.png" alt="Soterios" width="320" />
-</p>
-
-<p align="center">
-  <strong>Open-source, local-first security and system maintenance suite optimized for Windows.</strong><br/>
+  <strong>Open-source, local-first security and system maintenance suite built for Windows.</strong><br/>
   Scan files, inspect processes, audit your system, manage your firewall, test password strength, and check known breaches privately.
 </p>
 
@@ -21,13 +17,15 @@
 
 ## Download & Install
 
-Pick the installer for your operating system from the [latest release](https://github.com/chrisriv10/Soterios/releases/latest):
+Soterios is currently available for **Windows**. The project is focused on providing the best possible Windows experience first, as many security and maintenance features rely on Windows-specific APIs, services, and system integrations.
+
+Support for **macOS and Linux may come in future releases** as the project evolves. Expanding to additional platforms requires adapting features to each operating system's security model while maintaining the reliability and privacy-first approach of Soterios.
+
+Download the latest Windows release:
 
 | Platform | Installer | Notes |
 |----------|-----------|-------|
 | **Windows** | `Soterios-Setup-1.2.1.exe` | NSIS installer · requires admin for system-level checks |
-| **macOS** | `Soterios-1.2.1.dmg` | Drag to Applications · may require Gatekeeper approval |
-| **Linux** | `Soterios-1.2.1.AppImage` | `chmod +x` and run · no install needed |
 
 ---
 
@@ -75,11 +73,7 @@ npm start
 # Windows (NSIS .exe)
 npm run dist:win
 
-# macOS (.dmg)
-npm run dist:mac
-
-# Linux (.AppImage)
-npm run dist:linux
+Additional platform builds may be added in the future as cross-platform support develops.
 ```
 
 Built artifacts are output to the `dist/` directory.
@@ -134,6 +128,7 @@ These are longer-term ideas that may require significant architectural work:
 - Custom real-time protection 
 - Proprietary scanning engine 
 - Browser guard companion extension
+- Cross-platform support (macOS/Linux) |
 
 *Order and scope may change based on feedback. Releases have no fixed dates*
 
@@ -154,9 +149,9 @@ Please make sure your changes work locally (`npm start`) and pass linting before
 
 ## Project Status & Contributions
 
-Soterios is currently in early development.
+Soterios is actively developed and continuing to mature.
 
-Some features are fully functional, while others are still being implemented or refined. The project is actively evolving and may contain incomplete or experimental systems.
+The project is functional and usable, but some features are still being refined and additional improvements are planned for future releases.
 
 Because of this, feedback and contributions are especially valuable.
 
