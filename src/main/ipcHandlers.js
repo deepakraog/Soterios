@@ -6,6 +6,12 @@ const https = require('https');
 const { execFile } = require('child_process');
 const util = require('util');
 const execFilePromise = util.promisify(execFile);
+const {
+  isPathInScanReportsDir,
+  threatsToCsv,
+  csvPathForJson,
+  generatePdfFromHtml
+} = require('../security/reportExport');
 
 function isValidIp(ip) {
   const v4 = /^(\d{1,3}\.){3}\d{1,3}$/;
@@ -512,7 +518,45 @@ function registerIpcHandlers(mainWindow, services) {
     if (!row) return { success: false, error: 'Report not found.' };
     deleteFileIfSafe(row.html_path);
     deleteFileIfSafe(row.json_path);
+    deleteFileIfSafe(row.html_path && row.html_path.replace(/\.html$/i, '.pdf'));
+    deleteFileIfSafe(row.json_path && row.json_path.replace(/\.json$/i, '.csv'));
     return { success: true };
+  });
+
+  ipcMain.handle('report:exportPDF', async (_event, reportId) => {
+    const row = db.getScanReport(Number(reportId));
+    if (!row) return { success: false, error: 'Report not found.' };
+    if (!row.html_path || !fs.existsSync(row.html_path)) {
+      return { success: false, error: 'Report HTML file not found.' };
+    }
+    if (!isPathInScanReportsDir(row.html_path)) {
+      return { success: false, error: 'Invalid report path.' };
+    }
+    try {
+      const pdfPath = await generatePdfFromHtml(row.html_path);
+      return { success: true, path: pdfPath };
+    } catch (err) {
+      return { success: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('report:exportCSV', async (_event, reportId) => {
+    const row = db.getScanReport(Number(reportId));
+    if (!row) return { success: false, error: 'Report not found.' };
+    if (!row.json_path || !fs.existsSync(row.json_path)) {
+      return { success: false, error: 'Report JSON file not found.' };
+    }
+    if (!isPathInScanReportsDir(row.json_path)) {
+      return { success: false, error: 'Invalid report path.' };
+    }
+    try {
+      const report = JSON.parse(fs.readFileSync(row.json_path, 'utf8'));
+      const csvPath = csvPathForJson(row.json_path);
+      fs.writeFileSync(csvPath, threatsToCsv(report), 'utf8');
+      return { success: true, path: csvPath };
+    } catch (err) {
+      return { success: false, error: err.message || String(err) };
+    }
   });
 
   ipcMain.handle('reports:delete', async (_event, filePath) => {
@@ -607,6 +651,22 @@ function registerIpcHandlers(mainWindow, services) {
 
   ipcMain.handle('shell:showItemInFolder', (_event, filePath) => {
     shell.showItemInFolder(filePath);
+  });
+
+  ipcMain.handle('shell:openPath', async (_event, filePath) => {
+    const resolved = path.resolve(filePath || '');
+    const allowedRoots = [
+      path.resolve(path.join(os.homedir(), '.soterios', 'scan-reports')),
+      path.resolve(path.join(os.homedir(), '.soterios', 'reports'))
+    ];
+    if (!allowedRoots.some((root) => resolved.startsWith(root))) {
+      return { success: false, error: 'Invalid file path.' };
+    }
+    if (!fs.existsSync(resolved)) {
+      return { success: false, error: 'File not found.' };
+    }
+    const errorMessage = await shell.openPath(resolved);
+    return errorMessage ? { success: false, error: errorMessage } : { success: true };
   });
 }
 

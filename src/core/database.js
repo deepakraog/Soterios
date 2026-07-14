@@ -176,6 +176,16 @@ class DatabaseService {
     };
   }
 
+  getScanReport(id) {
+    const row = this.db.prepare('SELECT * FROM scan_reports WHERE id = ?').get(id);
+    if (!row) return null;
+    return {
+      ...row,
+      target_paths: JSON.parse(row.target_paths || '[]'),
+      details: JSON.parse(row.details || '{}')
+    };
+  }
+
   deleteScanReport(id) {
     const row = this.db.prepare('SELECT * FROM scan_reports WHERE id = ?').get(id);
     if (!row) return null;
