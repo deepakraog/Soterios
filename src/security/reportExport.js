@@ -8,9 +8,25 @@ function scanReportsDir() {
   return dir;
 }
 
+function securityReportsDir() {
+  return path.join(os.homedir(), '.soterios', 'reports');
+}
+
+function isPathInsideDir(filePath, rootDir) {
+  if (!filePath || !rootDir) return false;
+  const resolved = path.resolve(filePath);
+  const root = path.resolve(rootDir);
+  const relative = path.relative(root, resolved);
+  if (relative === '') return true;
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
 function isPathInScanReportsDir(filePath) {
-  const resolved = path.resolve(filePath || '');
-  return resolved.startsWith(path.resolve(scanReportsDir()));
+  return isPathInsideDir(filePath, scanReportsDir());
+}
+
+function isPathInAllowedReportDir(filePath) {
+  return isPathInScanReportsDir(filePath) || isPathInsideDir(filePath, securityReportsDir());
 }
 
 function csvEscape(value) {
@@ -21,12 +37,12 @@ function csvEscape(value) {
 
 function isThreatQuarantined(threat, report) {
   if (typeof threat.quarantined === 'boolean') return threat.quarantined;
-  const errors = Array.isArray(report.errors) ? report.errors : [];
+  const errors = Array.isArray(report?.errors) ? report.errors : [];
   const threatPath = threat.path || '';
-  if (errors.some((entry) => String(entry).includes(threatPath) && /quarantine/i.test(String(entry)))) {
-    return false;
-  }
-  return report.status === 'completed';
+  return !errors.some((entry) => {
+    const text = String(entry);
+    return text.includes(threatPath) && /failed to quarantine/i.test(text);
+  });
 }
 
 function threatsToCsv(report) {
@@ -52,11 +68,23 @@ function csvPathForJson(jsonPath) {
 }
 
 async function generatePdfFromHtml(htmlPath) {
+  if (!htmlPath || !fs.existsSync(htmlPath)) {
+    throw new Error('Report HTML file not found.');
+  }
+
   const { BrowserWindow } = require('electron');
   const win = new BrowserWindow({
     show: false,
-    webPreferences: { sandbox: true }
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      javascript: false
+    }
   });
+
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
 
   try {
     await win.loadFile(htmlPath);
@@ -71,7 +99,10 @@ async function generatePdfFromHtml(htmlPath) {
 
 module.exports = {
   scanReportsDir,
+  securityReportsDir,
+  isPathInsideDir,
   isPathInScanReportsDir,
+  isPathInAllowedReportDir,
   csvEscape,
   isThreatQuarantined,
   threatsToCsv,

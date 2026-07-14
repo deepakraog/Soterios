@@ -8,6 +8,9 @@ const util = require('util');
 const execFilePromise = util.promisify(execFile);
 const {
   isPathInScanReportsDir,
+  isPathInAllowedReportDir,
+  isPathInsideDir,
+  securityReportsDir,
   threatsToCsv,
   csvPathForJson,
   generatePdfFromHtml
@@ -524,15 +527,15 @@ function registerIpcHandlers(mainWindow, services) {
   });
 
   ipcMain.handle('report:exportPDF', async (_event, reportId) => {
-    const row = db.getScanReport(Number(reportId));
-    if (!row) return { success: false, error: 'Report not found.' };
-    if (!row.html_path || !fs.existsSync(row.html_path)) {
-      return { success: false, error: 'Report HTML file not found.' };
-    }
-    if (!isPathInScanReportsDir(row.html_path)) {
-      return { success: false, error: 'Invalid report path.' };
-    }
     try {
+      const row = db.getScanReport(Number(reportId));
+      if (!row) return { success: false, error: 'Report not found.' };
+      if (!row.html_path || !fs.existsSync(row.html_path)) {
+        return { success: false, error: 'Report HTML file not found.' };
+      }
+      if (!isPathInScanReportsDir(row.html_path)) {
+        return { success: false, error: 'Invalid report path.' };
+      }
       const pdfPath = await generatePdfFromHtml(row.html_path);
       return { success: true, path: pdfPath };
     } catch (err) {
@@ -541,15 +544,15 @@ function registerIpcHandlers(mainWindow, services) {
   });
 
   ipcMain.handle('report:exportCSV', async (_event, reportId) => {
-    const row = db.getScanReport(Number(reportId));
-    if (!row) return { success: false, error: 'Report not found.' };
-    if (!row.json_path || !fs.existsSync(row.json_path)) {
-      return { success: false, error: 'Report JSON file not found.' };
-    }
-    if (!isPathInScanReportsDir(row.json_path)) {
-      return { success: false, error: 'Invalid report path.' };
-    }
     try {
+      const row = db.getScanReport(Number(reportId));
+      if (!row) return { success: false, error: 'Report not found.' };
+      if (!row.json_path || !fs.existsSync(row.json_path)) {
+        return { success: false, error: 'Report JSON file not found.' };
+      }
+      if (!isPathInScanReportsDir(row.json_path)) {
+        return { success: false, error: 'Invalid report path.' };
+      }
       const report = JSON.parse(fs.readFileSync(row.json_path, 'utf8'));
       const csvPath = csvPathForJson(row.json_path);
       fs.writeFileSync(csvPath, threatsToCsv(report), 'utf8');
@@ -560,9 +563,8 @@ function registerIpcHandlers(mainWindow, services) {
   });
 
   ipcMain.handle('reports:delete', async (_event, filePath) => {
-    const reportsDir = path.join(os.homedir(), '.soterios', 'reports');
     const resolved = path.resolve(filePath || '');
-    if (!resolved.startsWith(path.resolve(reportsDir))) return { success: false, error: 'Invalid report path.' };
+    if (!isPathInsideDir(resolved, securityReportsDir())) return { success: false, error: 'Invalid report path.' };
     deleteFileIfSafe(resolved);
     const sidecar = resolved.toLowerCase().endsWith('.json')
       ? resolved.replace(/\.json$/i, '.html')
@@ -572,9 +574,8 @@ function registerIpcHandlers(mainWindow, services) {
   });
 
   ipcMain.handle('reports:read', async (_event, filePath) => {
-    const reportsDir = path.join(os.homedir(), '.soterios', 'reports');
     const resolved = path.resolve(filePath || '');
-    if (!resolved.startsWith(path.resolve(reportsDir))) return { success: false, error: 'Invalid report path.' };
+    if (!isPathInsideDir(resolved, securityReportsDir())) return { success: false, error: 'Invalid report path.' };
     if (!fs.existsSync(resolved)) return { success: false, error: 'Report not found.' };
     if (resolved.toLowerCase().endsWith('.json')) {
       return { success: true, type: 'json', data: JSON.parse(fs.readFileSync(resolved, 'utf8')) };
@@ -655,11 +656,7 @@ function registerIpcHandlers(mainWindow, services) {
 
   ipcMain.handle('shell:openPath', async (_event, filePath) => {
     const resolved = path.resolve(filePath || '');
-    const allowedRoots = [
-      path.resolve(path.join(os.homedir(), '.soterios', 'scan-reports')),
-      path.resolve(path.join(os.homedir(), '.soterios', 'reports'))
-    ];
-    if (!allowedRoots.some((root) => resolved.startsWith(root))) {
+    if (!isPathInAllowedReportDir(resolved)) {
       return { success: false, error: 'Invalid file path.' };
     }
     if (!fs.existsSync(resolved)) {
