@@ -146,6 +146,22 @@
   --accent-danger: #f87171;
 }
 
+:root[data-theme="monochrome"] {
+  --bg-base: #0a0a0a;
+  --bg-surface: rgba(23, 23, 23, 0.94);
+  --bg-surface-hover: rgba(38, 38, 38, 0.98);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --body-gradient: var(--bg-base);
+  --text-main: #f5f5f5;
+  --text-muted: #a3a3a3;
+  --accent-primary: #e5e5e5;
+  --accent-primary-dark: #d4d4d4;
+  --accent-primary-glow: rgba(255, 255, 255, 0.14);
+  --accent-success: #d4d4d4;
+  --accent-warning: #a3a3a3;
+  --accent-danger: #737373;
+}
+
 body {
   background-color: var(--bg-base);
   color: var(--text-main);

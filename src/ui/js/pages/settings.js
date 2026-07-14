@@ -90,6 +90,7 @@ window.Pages.settings = {
               <option value="crimson" ${settings.ui?.theme === 'crimson' ? 'selected' : ''}>Crimson</option>
               <option value="terminal" ${settings.ui?.theme === 'terminal' ? 'selected' : ''}>Terminal</option>
               <option value="midnight" ${settings.ui?.theme === 'midnight' ? 'selected' : ''}>Midnight</option>
+              <option value="monochrome" ${settings.ui?.theme === 'monochrome' ? 'selected' : ''}>Monochrome</option>
             </select>
           </div>
           <div class="toggle-desc" style="margin-bottom:12px;">Choose a palette for the full app experience.</div>
