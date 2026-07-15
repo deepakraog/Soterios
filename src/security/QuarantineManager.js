@@ -8,7 +8,17 @@ const logger = require('../utils/logger');
 // Both quarantine() and restore() must use the same value.
 const QUARANTINE_XOR_KEY = 0x55;
 
+/**
+ * QuarantineManager — isolates detected threat files by XOR-encrypting
+ * them (key `0x55`) and moving them to a dedicated quarantine directory.
+ * Files can later be restored to their original path or permanently deleted.
+ */
 class QuarantineManager {
+  /**
+   * @param {object} db - DatabaseService with quarantine record helpers.
+   * @param {object} [options]
+   * @param {string} [options.quarantineDir] - Override quarantine directory (tests).
+   */
   constructor(db, options = {}) {
     this.db = db;
     this.quarantineDir = options.quarantineDir || path.join(os.homedir(), '.soterios-quarantine');
@@ -17,6 +27,15 @@ class QuarantineManager {
     }
   }
 
+  /**
+   * XOR-encrypt a threat file into quarantine, record it, then remove the original.
+   * @param {string} originalPath
+   * @param {string} hash
+   * @param {string} engine
+   * @param {string} threatName
+   * @param {string} reason
+   * @returns {Promise<{success:boolean, id?:number, error?:string}>}
+   */
   async quarantine(originalPath, hash, engine, threatName, reason) {
     let quarantinePath = null;
     try {
@@ -60,6 +79,11 @@ class QuarantineManager {
     }
   }
 
+  /**
+   * Decrypt a quarantined file back to its original path and mark the record restored.
+   * @param {number} id - Quarantine row id.
+   * @returns {Promise<{success:boolean, error?:string}>}
+   */
   async restore(id) {
     try {
       const stmt = this.db.db.prepare('SELECT * FROM quarantine WHERE id = ?');
@@ -91,6 +115,11 @@ class QuarantineManager {
     }
   }
 
+  /**
+   * Permanently delete a quarantined file from disk and mark the record deleted.
+   * @param {number} id - Quarantine row id.
+   * @returns {Promise<{success:boolean, error?:string}>}
+   */
   async delete(id) {
     try {
       const stmt = this.db.db.prepare('SELECT * FROM quarantine WHERE id = ?');
