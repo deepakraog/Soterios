@@ -18,6 +18,7 @@ const THEME_BACKGROUNDS = {
   bumblebee: '#0c0b08',
   monochrome: '#0a0a0a',
   rose: '#1a1216',
+  aurora: '#0b1220',
 };
 
 const TOAST_THEMES = {
@@ -140,6 +141,16 @@ const TOAST_THEMES = {
     closeBtn: '#db2777',
     closeHover: '#f9a8d4',
     accents: { info: '#f472b6', success: '#6ee7b7', warn: '#fbbf24', danger: '#e11d48' },
+  },
+  aurora: {
+    bg: 'rgba(20, 30, 50, 0.96)',
+    border: 'rgba(125, 211, 252, 0.18)',
+    textMain: '#e0faff',
+    textMuted: '#94a3b8',
+    textDim: '#7dd3fc',
+    closeBtn: '#7dd3fc',
+    closeHover: '#e0faff',
+    accents: { info: '#7dd3fc', success: '#3ddc97', warn: '#fbbf24', danger: '#fb7185' },
   },
 };
 

@@ -311,7 +311,7 @@ function showNotification(title, body, level = 'info', iconOverride = null) {
 
     activeToasts.push(toastWindow);
     repositionToasts();
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function createSplashWindow(themeName = 'dark') {
