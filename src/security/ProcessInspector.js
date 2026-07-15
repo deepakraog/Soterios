@@ -1,6 +1,10 @@
+'use strict';
+
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+const { suspiciousPathSignals, getSignatureInfo } = require('./windowsChecks');
+const logger = require('../utils/logger');
 
 // PIDs that should never be terminated regardless of what they resolve to.
 const PROTECTED_PIDS = new Set([0, 4]);
@@ -25,9 +29,29 @@ const PROTECTED_NAMES = new Set([
   'fontdrvhost.exe'
 ]);
 
+const SYSTEM_DIR_MARKERS = ['\\windows\\system32\\', '\\windows\\syswow64\\'];
+
+function recommendationForReasons(reasons) {
+  if (!reasons.length) return 'No action needed.';
+  if (reasons.some((r) => /recycle bin/i.test(r))) {
+    return 'Review this process immediately — executables from the Recycle Bin are almost never legitimate.';
+  }
+  if (reasons.some((r) => /unsigned|untrusted|encoded|appdata|temporary|unusual/i.test(r))) {
+    return 'Verify the executable source and path before allowing it to keep running.';
+  }
+  return 'Review the process location and confirm it is expected on this system.';
+}
+
+function isSystemDirectoryPath(filePath) {
+  const lower = String(filePath || '').toLowerCase().replace(/\//g, '\\');
+  return SYSTEM_DIR_MARKERS.some((marker) => lower.includes(marker));
+}
+
 // ps-list is ESM-only so we must use dynamic import()
 class ProcessInspector {
-  constructor() {}
+  constructor(options = {}) {
+    this._getSignatureInfo = options.getSignatureInfo || getSignatureInfo;
+  }
 
   // ps-list's Windows output doesn't include a separate executable path
   // field — only the full command line. This pulls the executable portion
@@ -46,25 +70,61 @@ class ProcessInspector {
     return spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
   }
 
+  async _assessSuspicious(proc) {
+    const reasons = [];
+    const locationReasons = [];
+    const exePath = proc.path || this._extractPathFromCmd(proc.cmd);
+    for (const signal of suspiciousPathSignals(exePath)) {
+      reasons.push(signal.message);
+      locationReasons.push(signal.message);
+    }
+
+    const name = String(proc.name || '').toLowerCase();
+    const cmd = String(proc.cmd || '').toLowerCase();
+    if (name === 'powershell.exe' && (cmd.includes('-enc') || cmd.includes('-encodedcommand') || cmd.includes('frombase64string'))) {
+      reasons.push('PowerShell invoked with encoded/obfuscated command arguments.');
+    }
+
+    if (exePath && isSystemDirectoryPath(exePath)) {
+      try {
+        const sig = await this._getSignatureInfo(exePath);
+        const status = sig && sig.status ? String(sig.status) : 'Unknown';
+        if (status === 'NotSigned' || status === 'HashMismatch' || status === 'NotTrusted') {
+          const msg = `Unsigned or untrusted executable in a system directory (signature status: ${status}).`;
+          reasons.push(msg);
+        }
+      } catch (_) {
+        /* signature lookup is best-effort */
+      }
+    }
+
+    return {
+      suspicious: locationReasons.length > 0,
+      locationReasons,
+      suspiciousReasons: reasons,
+      recommendedAction: recommendationForReasons(reasons)
+    };
+  }
+
   async getProcesses() {
     try {
       const { default: psList } = await import('ps-list');
       const processes = await psList();
-      return processes.map(p => ({
-        pid: p.pid,
-        name: p.name,
-        cmd: p.cmd || '',
-        path: this._extractPathFromCmd(p.cmd),
-        ppid: p.ppid,
-        cpu: p.cpu,
-        memory: p.memory,
-        suspicious: !!(
-          p.name && p.name.toLowerCase() === 'powershell.exe' &&
-          p.cmd && p.cmd.includes('-enc')
-        )
+      return Promise.all(processes.map(async (p) => {
+        const path = this._extractPathFromCmd(p.cmd);
+        const base = {
+          pid: p.pid,
+          name: p.name,
+          cmd: p.cmd || '',
+          path,
+          ppid: p.ppid,
+          cpu: p.cpu,
+          memory: p.memory
+        };
+        return { ...base, ...(await this._assessSuspicious(base)) };
       }));
     } catch (err) {
-      console.error('Failed to get processes', err);
+      logger.error('Failed to get processes', { error: err.message || String(err) });
       return [];
     }
   }

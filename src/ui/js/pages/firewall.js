@@ -134,6 +134,8 @@ window.Pages['firewall'] = {
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
             <h3 style="margin:0;">Firewall Rules</h3>
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-sm" id="exportFirewallRulesBtn" type="button">Export Rules</button>
+              <button class="btn btn-sm" id="importFirewallRulesBtn" type="button">Import Rules</button>
               <select id="ruleActionFilter" style="padding:6px 10px; border-radius:8px; border:1px solid var(--glass-border); background:var(--bg-surface); color:inherit; font-size:0.85rem;">
                 <option value="all" ${this._ruleActionFilter === 'all' ? 'selected' : ''}>All Actions</option>
                 <option value="Allow" ${this._ruleActionFilter === 'Allow' ? 'selected' : ''}>Allow</option>
@@ -169,6 +171,7 @@ window.Pages['firewall'] = {
 
       // Init rule list (loads firewall rules from PowerShell)
       await this._initRuleList(container);
+      this._wireImportExport(container);
 
       // Delegated so it keeps working even after _refreshSummary() swaps out
       // #firewallSummary's innerHTML on a timer — #firewallContent itself
@@ -1176,6 +1179,54 @@ window.Pages['firewall'] = {
   // ══════════════════════════════════════════════════════════════════════
 
   _ruleCache: [],
+
+  _wireImportExport(container) {
+    const exportBtn = container.querySelector('#exportFirewallRulesBtn');
+    const importBtn = container.querySelector('#importFirewallRulesBtn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        exportBtn.disabled = true;
+        try {
+          const res = await window.api.invoke('firewall:exportRules');
+          if (!res || res.canceled) return;
+          alert(`Exported ${res.count} Soterios-managed rule(s) to:\n${res.path}`);
+        } catch (e) {
+          alert(this._friendlyError(e, 'Failed to export firewall rules.'));
+        } finally {
+          exportBtn.disabled = false;
+        }
+      });
+    }
+    if (importBtn) {
+      importBtn.addEventListener('click', async () => {
+        const choice = window.prompt(
+          'If an imported rule already exists, choose conflict handling:\nskip / overwrite / rename',
+          'skip'
+        );
+        if (choice === null) return;
+        const onConflict = ['skip', 'overwrite', 'rename'].includes(String(choice).trim().toLowerCase())
+          ? String(choice).trim().toLowerCase()
+          : 'skip';
+        importBtn.disabled = true;
+        try {
+          const res = await window.api.invoke('firewall:importRules', { onConflict });
+          if (!res || res.canceled) return;
+          const errNote = res.errors && res.errors.length
+            ? `\nErrors:\n- ${res.errors.slice(0, 5).join('\n- ')}`
+            : '';
+          alert(
+            `Import finished.\nCreated: ${res.created}\nSkipped: ${res.skipped}\nOverwritten: ${res.overwritten}\nRenamed: ${res.renamed}${errNote}`
+          );
+          await this._initRuleList(container);
+          this._refreshSummary(container);
+        } catch (e) {
+          alert(this._friendlyError(e, 'Failed to import firewall rules.'));
+        } finally {
+          importBtn.disabled = false;
+        }
+      });
+    }
+  },
 
   async _initRuleList(container) {
     const listEl = container.querySelector('#ruleListContainer');

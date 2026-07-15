@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { exec } = require('child_process');
 const util = require('util');
 const si = require('systeminformation');
@@ -11,7 +12,7 @@ class NetworkMonitor {
       if (!Array.isArray(connections)) connections = [connections];
       return connections;
     } catch (e) {
-      console.error('Failed to get network connections', e);
+      logger.error('Failed to get network connections', e);
       return [];
     }
   }
@@ -43,7 +44,7 @@ class NetworkMonitor {
         }
       };
     } catch (e) {
-      console.error('Failed to get network stats', e);
+      logger.error('Failed to get network stats', e);
       return { interfaces: [], connections: { total: 0, established: 0, listen: 0, timeWait: 0, closeWait: 0 } };
     }
   }

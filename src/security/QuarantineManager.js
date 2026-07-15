@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const logger = require('../utils/logger');
 
 // XOR key used to obfuscate quarantined files. This is not cryptographic
 // security — it's just enough to prevent accidental double-click execution.
@@ -8,19 +9,20 @@ const os = require('os');
 const QUARANTINE_XOR_KEY = 0x55;
 
 class QuarantineManager {
-  constructor(db) {
+  constructor(db, options = {}) {
     this.db = db;
-    this.quarantineDir = path.join(os.homedir(), '.soterios-quarantine');
+    this.quarantineDir = options.quarantineDir || path.join(os.homedir(), '.soterios-quarantine');
     if (!fs.existsSync(this.quarantineDir)) {
       fs.mkdirSync(this.quarantineDir, { recursive: true });
     }
   }
 
   async quarantine(originalPath, hash, engine, threatName, reason) {
+    let quarantinePath = null;
     try {
       const fileName = path.basename(originalPath);
       const safeName = `${Date.now()}_${fileName}.encrypted`;
-      const quarantinePath = path.join(this.quarantineDir, safeName);
+      quarantinePath = path.join(this.quarantineDir, safeName);
 
       // Basic XOR encryption to prevent accidental execution
       const data = fs.readFileSync(originalPath);
@@ -43,14 +45,16 @@ class QuarantineManager {
 
       return { success: true, id: res.lastInsertRowid };
     } catch (err) {
-      console.error('Failed to quarantine:', err);
+      logger.error('Failed to quarantine', { error: err.message || String(err) });
       // If DB failed but we already encrypted the file, clean it up
       try {
         if (quarantinePath && fs.existsSync(quarantinePath)) {
           fs.unlinkSync(quarantinePath);
         }
       } catch (cleanupErr) {
-        console.error('Failed to cleanup quarantined file after error:', cleanupErr);
+        logger.error('Failed to cleanup quarantined file after error', {
+          error: cleanupErr.message || String(cleanupErr)
+        });
       }
       return { success: false, error: err.message };
     }

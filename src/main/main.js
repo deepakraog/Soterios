@@ -3,6 +3,8 @@ const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const logger = require('../utils/logger');
+const { TOAST_THEMES, resolveThemeName, themeBackground } = require('../utils/themes');
 
 // Ensure Chromium/Electron uses a writable data/cache location instead of
 // falling back to a restricted or temp-based path on Windows.
@@ -72,14 +74,29 @@ let mainWindow;
 let splashWindow;
 let splashTimeoutId;
 let dbRef; // set once the database is created in app.whenReady() below, so
-// showNotification (defined before that point) can check settings
+           // showNotification (defined before that point) can check settings
+let currentUiTheme = 'dark';
 
 function logLine(level, message, meta) {
+  const fn = logger[level] || logger.info;
+  fn(message, meta || undefined);
+}
+
+function peekUiTheme(dbPath) {
   try {
-    const line = JSON.stringify({ ts: new Date().toISOString(), level, message, meta: meta || null }) + '\n';
-    fs.mkdirSync(app.getPath('userData'), { recursive: true });
-    fs.appendFileSync(path.join(app.getPath('userData'), 'soterios.log'), line);
-  } catch (_) { }
+    if (!fs.existsSync(dbPath)) return 'dark';
+    const Database = require('better-sqlite3');
+    const peek = new Database(dbPath, { readonly: true, fileMustExist: true });
+    try {
+      const row = peek.prepare('SELECT value FROM settings WHERE key = ?').get('ui.theme');
+      if (!row || row.value == null) return 'dark';
+      return resolveThemeName(JSON.parse(row.value));
+    } finally {
+      peek.close();
+    }
+  } catch (_) {
+    return 'dark';
+  }
 }
 
 function createIcon() {
@@ -137,87 +154,6 @@ const TOAST_ICONS = {
   warn: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L2.7 18a1 1 0 0 0 .9 1.5h16.8a1 1 0 0 0 .9-1.5L13.7 3.9a1.6 1.6 0 0 0-2.8 0z"/>',
   danger: '<path d="M15 9l-6 6"/><path d="M9 9l6 6"/><circle cx="12" cy="12" r="9"/>',
   threat: '<circle cx="12" cy="12" r="5"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="M5.6 5.6l2.1 2.1"/><path d="M18.3 18.3l-2.1-2.1"/><path d="M18.3 5.6l-2.1 2.1"/><path d="M5.6 18.3l2.1-2.1"/><circle cx="10" cy="10" r=".5"/><circle cx="14.5" cy="10.5" r=".5"/><circle cx="13" cy="14.5" r=".5"/><circle cx="9.5" cy="14" r=".5"/>'
-};
-
-const TOAST_THEMES = {
-  dark: {
-    bg: 'rgba(20, 26, 33, 0.97)', border: 'rgba(255,255,255,0.08)',
-    textMain: '#f2f5f8', textMuted: '#aab4bf', textDim: '#7d8a99',
-    closeBtn: '#5b6672', closeHover: '#aab4bf',
-    accents: { info: '#4fc3d9', success: '#3ddc97', warn: '#e8b339', danger: '#e85f5c' }
-  },
-  light: {
-    bg: 'rgba(248, 250, 252, 0.98)', border: 'rgba(15, 23, 42, 0.1)',
-    textMain: '#0f172a', textMuted: '#475569', textDim: '#94a3b8',
-    closeBtn: '#94a3b8', closeHover: '#64748b',
-    accents: { info: '#2563eb', success: '#16a34a', warn: '#d97706', danger: '#dc2626' }
-  },
-  ocean: {
-    bg: 'rgba(8, 23, 39, 0.95)', border: 'rgba(125, 211, 252, 0.16)',
-    textMain: '#ecfeff', textMuted: '#7dd3fc', textDim: '#5bb8e0',
-    closeBtn: '#5bb8e0', closeHover: '#7dd3fc',
-    accents: { info: '#2dd4bf', success: '#34d399', warn: '#f59e0b', danger: '#fb7185' }
-  },
-  emerald: {
-    bg: 'rgba(12, 48, 36, 0.95)', border: 'rgba(134, 239, 172, 0.28)',
-    textMain: '#eafff0', textMuted: '#9ff5bf', textDim: '#7ddb9f',
-    closeBtn: '#7ddb9f', closeHover: '#9ff5bf',
-    accents: { info: '#32e06f', success: '#5ff08f', warn: '#fcd34d', danger: '#ff8fa0' }
-  },
-  sunset: {
-    bg: 'rgba(46, 24, 27, 0.95)', border: 'rgba(251, 191, 36, 0.16)',
-    textMain: '#fff7ed', textMuted: '#fdba74', textDim: '#f59e6b',
-    closeBtn: '#f59e6b', closeHover: '#fdba74',
-    accents: { info: '#f97316', success: '#fb923c', warn: '#facc15', danger: '#f43f5e' }
-  },
-  violet: {
-    bg: 'rgba(35, 24, 54, 0.95)', border: 'rgba(192, 132, 252, 0.18)',
-    textMain: '#f5f3ff', textMuted: '#d8b4fe', textDim: '#c094e0',
-    closeBtn: '#c094e0', closeHover: '#d8b4fe',
-    accents: { info: '#8b5cf6', success: '#a78bfa', warn: '#f59e0b', danger: '#fb7185' }
-  },
-  crimson: {
-    bg: 'rgba(12, 4, 5, 0.96)', border: 'rgba(220, 38, 38, 0.22)',
-    textMain: '#fef2f2', textMuted: '#fca5a5', textDim: '#e08080',
-    closeBtn: '#e08080', closeHover: '#fca5a5',
-    accents: { info: '#dc2626', success: '#f87171', warn: '#fb923c', danger: '#b91c1c' }
-  },
-  terminal: {
-    bg: 'rgba(5, 12, 7, 0.97)', border: 'rgba(0, 255, 170, 0.18)',
-    textMain: '#e9ffee', textMuted: '#8af5c0', textDim: '#60d9a0',
-    closeBtn: '#60d9a0', closeHover: '#8af5c0',
-    accents: { info: '#16a34a', success: '#4ade80', warn: '#a3e635', danger: '#f87171' }
-  },
-  midnight: {
-    bg: 'rgba(10, 14, 26, 0.97)', border: 'rgba(96, 165, 250, 0.18)',
-    textMain: '#e8edf5', textMuted: '#94a3c4', textDim: '#64748b',
-    closeBtn: '#64748b', closeHover: '#94a3c4',
-    accents: { info: '#38bdf8', success: '#2dd4bf', warn: '#fbbf24', danger: '#f87171' }
-  },
-  bumblebee: {
-    bg: 'rgba(12, 11, 8, 0.97)', border: 'rgba(250, 204, 21, 0.22)',
-    textMain: '#fefce8', textMuted: '#ca8a04', textDim: '#a16207',
-    closeBtn: '#a16207', closeHover: '#ca8a04',
-    accents: { info: '#facc15', success: '#84cc16', warn: '#f59e0b', danger: '#ef4444' }
-  },
-  monochrome: {
-    bg: 'rgba(10, 10, 10, 0.97)', border: 'rgba(255, 255, 255, 0.1)',
-    textMain: '#f5f5f5', textMuted: '#a3a3a3', textDim: '#737373',
-    closeBtn: '#737373', closeHover: '#a3a3a3',
-    accents: { info: '#e5e5e5', success: '#d4d4d4', warn: '#a3a3a3', danger: '#737373' }
-  },
-  rose: {
-    bg: 'rgba(26, 18, 22, 0.97)', border: 'rgba(244, 114, 182, 0.18)',
-    textMain: '#fdf2f8', textMuted: '#f9a8d4', textDim: '#db2777',
-    closeBtn: '#db2777', closeHover: '#f9a8d4',
-    accents: { info: '#f472b6', success: '#6ee7b7', warn: '#fbbf24', danger: '#e11d48' }
-  },
-  aurora: {
-    bg: 'rgba(20, 30, 50, 0.96)', border: 'rgba(125, 211, 252, 0.18)',
-    textMain: '#e0faff', textMuted: '#94a3b8', textDim: '#7dd3fc',
-    closeBtn: '#7dd3fc', closeHover: '#e0faff',
-    accents: { info: '#7dd3fc', success: '#3ddc97', warn: '#fbbf24', danger: '#fb7185' }
-  }
 };
 
 function escToastHtml(v) {
@@ -378,7 +314,8 @@ function showNotification(title, body, level = 'info', iconOverride = null) {
   } catch (_) { }
 }
 
-function createSplashWindow() {
+function createSplashWindow(themeName = 'dark') {
+  const theme = resolveThemeName(themeName);
   splashWindow = new BrowserWindow({
     width: 660,
     height: 440,
@@ -391,7 +328,7 @@ function createSplashWindow() {
     show: false,
     center: true,
     skipTaskbar: true,
-    backgroundColor: '#0e1117',
+    backgroundColor: themeBackground(theme),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -400,7 +337,9 @@ function createSplashWindow() {
     }
   });
 
-  splashWindow.loadFile(path.join(__dirname, '../ui/pages/splash.html'));
+  splashWindow.loadFile(path.join(__dirname, '../ui/pages/splash.html'), {
+    query: { theme }
+  });
   splashWindow.once('ready-to-show', () => {
     if (splashWindow) splashWindow.show();
   });
@@ -436,7 +375,7 @@ function createWindow() {
     height: 820,
     minWidth: 980,
     minHeight: 640,
-    backgroundColor: '#0e1117',
+    backgroundColor: themeBackground(currentUiTheme),
     title: 'Soterios',
     icon: createIcon(),
     autoHideMenuBar: true,
@@ -511,18 +450,28 @@ function buildAppMenu() {
 app.setAppUserModelId('com.soterios.app');
 
 app.whenReady().then(async () => {
-  // Show the splash screen immediately, before any backend setup, so the
-  // user sees something the instant the app launches rather than a blank
-  // taskbar entry with no window at all.
-  createSplashWindow();
+  const dbPath = path.join(app.getPath('userData'), 'soterios.db');
+  // File logging is opt-in via SOTERIOS_LOG_FILE (path or "1" for the default log file).
+  const logConfig = { level: process.env.SOTERIOS_LOG_LEVEL || 'info' };
+  if (process.env.SOTERIOS_LOG_FILE) {
+    logConfig.filePath = process.env.SOTERIOS_LOG_FILE === '1'
+      ? path.join(app.getPath('userData'), 'soterios.log')
+      : process.env.SOTERIOS_LOG_FILE;
+  }
+  logger.configure(logConfig);
 
-  logLine('info', 'App starting');
+  // Peek the saved theme before creating the splash so the first paint
+  // matches the user's preference instead of always flashing dark mode.
+  currentUiTheme = peekUiTheme(dbPath);
+  createSplashWindow(currentUiTheme);
+
+  logLine('info', 'App starting', { theme: currentUiTheme });
   sendSplashProgress(0, 'Starting Soterios...');
 
   // 1. Database
-  const dbPath = path.join(app.getPath('userData'), 'soterios.db');
   const db = new DatabaseService(dbPath);
   dbRef = db;
+  currentUiTheme = resolveThemeName(db.getSetting('ui.theme', currentUiTheme));
   sendSplashProgress(3, 'Connecting to database...');
 
   // Migrate old feature.systemMonitoring key to feature.externalLookups

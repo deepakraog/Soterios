@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 /**
  * BlocklistService - Manages free IP blocklists with caching
  * Fetches and caches free blocklists from public sources
@@ -198,7 +199,7 @@ class BlocklistService {
         this.db.setBlocklistCache(source.name, rawData);
         this.parseAndStore(source.name, rawData, source.version);
       } catch (err) {
-        console.error(`Failed to refresh ${source.name}:`, err.message);
+        logger.error(`Failed to refresh ${source.name}:`, err.message);
       }
     }
   }
