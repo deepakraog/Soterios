@@ -275,6 +275,15 @@ container.innerHTML = `
   // (risk score/level, CPU%, memory%, recommended action, border color) so
   // later refreshes can update them directly via _applyRowData instead of
   // rebuilding the row.
+  _reasonHint(p) {
+    // Prefer explicit location reasons so refresh/create stay in sync.
+    return (p.locationReasons && p.locationReasons[0])
+      || ((p.suspiciousReasons || []).find((r) =>
+        /appdata|temporary|recycle bin|writable windows location|double extension/i.test(r || '')
+      ))
+      || '';
+  },
+
   _createRow(p) {
     const rawPath = p.path || p.cmd || '';
     const shortPath = truncatePath(rawPath || 'Path unavailable', 56);
@@ -282,11 +291,7 @@ container.innerHTML = `
     // Badge is location-only — driven by process-viewer’s `suspicious`/`locationReasons`.
     const locationSuspicious = !!p.suspicious;
     const compact = this._compactView;
-    const reasonHint = (p.locationReasons && p.locationReasons[0])
-      || ((p.suspiciousReasons || []).find((r) =>
-        /appdata|temporary|recycle bin|writable windows location|double extension/i.test(r || '')
-      ))
-      || '';
+    const reasonHint = this._reasonHint(p);
 
     const row = document.createElement('div');
     row.className = 'list-row';
@@ -375,7 +380,12 @@ container.innerHTML = `
       entry.riskScoreEl.style.color = color;
     }
     if (entry.riskLevelEl) entry.riskLevelEl.textContent = p.risk.level;
-    if (entry.recommendedEl) entry.recommendedEl.textContent = p.recommendedAction;
+    if (entry.recommendedEl) {
+      const reasonHint = this._reasonHint(p);
+      entry.recommendedEl.textContent = reasonHint
+        ? `${p.recommendedAction} — ${reasonHint}`
+        : (p.recommendedAction || '');
+    }
     if (entry.cpuEl) entry.cpuEl.textContent = p.cpu !== null ? `${p.cpu}% CPU` : 'CPU n/a';
     if (entry.memoryEl) entry.memoryEl.textContent = p.memory !== null ? `${p.memory}% RAM` : 'RAM n/a';
 
