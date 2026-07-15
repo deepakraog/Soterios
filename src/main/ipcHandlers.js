@@ -474,6 +474,45 @@ function registerIpcHandlers(mainWindow, services) {
     return services.firewallManager.setProfileEnabled(profile, !!enabled);
   });
 
+  ipcMain.handle('firewall:exportRules', async () => {
+    const data = await services.firewallManager.exportRules();
+    const result = await dialog.showSaveDialog(mainWindow || BrowserWindow.getFocusedWindow(), {
+      title: 'Export Soterios firewall rules',
+      defaultPath: 'soterios-firewall-rules.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.promises.writeFile(result.filePath, JSON.stringify(data, null, 2), 'utf8');
+    return { success: true, path: result.filePath, count: data.rules.length };
+  });
+
+  ipcMain.handle('firewall:importRules', async (_event, options = {}) => {
+    const onConflict = ['skip', 'overwrite', 'rename'].includes(options && options.onConflict)
+      ? options.onConflict
+      : 'skip';
+    const result = await dialog.showOpenDialog(mainWindow || BrowserWindow.getFocusedWindow(), {
+      title: 'Import Soterios firewall rules',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+    if (result.canceled || !result.filePaths.length) return { canceled: true };
+    const filePath = result.filePaths[0];
+    const stat = await fs.promises.stat(filePath);
+    const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+    if (stat.size > MAX_IMPORT_BYTES) {
+      throw new Error('Import file is too large (limit 2 MB).');
+    }
+    let payload;
+    try {
+      const raw = await fs.promises.readFile(filePath, 'utf8');
+      payload = JSON.parse(raw);
+    } catch (e) {
+      throw new Error('Could not parse import file as JSON.');
+    }
+    const summary = await services.firewallManager.importRules(payload, { onConflict });
+    return { ...summary, path: filePath };
+  });
+
   // -- Trusted connections (local marker only — does not create a firewall
   // rule, just tells the perimeter UI to treat this remote address as safe) --
   const TRUSTED_IPS_KEY = 'firewall.trustedIps';

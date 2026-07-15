@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -197,7 +198,7 @@ class ScanEngine {
       if (this.abortController && this.abortController.signal.aborted) {
         wasCanceled = true;
       } else {
-        console.error('Scan error:', err);
+        logger.error('Scan error:', err);
         errors.push(err.message || String(err));
       }
     } finally {
@@ -298,7 +299,7 @@ class ScanEngine {
         details: report.details || {}
       });
     } catch (err) {
-      console.warn('Unable to save scan report record:', err.message || err);
+      logger.warn('Unable to save scan report record:', err.message || err);
     }
     return saved;
   }

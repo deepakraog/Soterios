@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const logger = require('../utils/logger');
 
 // XOR key used to obfuscate quarantined files. This is not cryptographic
 // security — it's just enough to prevent accidental double-click execution.
@@ -63,14 +64,16 @@ class QuarantineManager {
 
       return { success: true, id: res.lastInsertRowid };
     } catch (err) {
-      console.error('Failed to quarantine:', err);
+      logger.error('Failed to quarantine', { error: err.message || String(err) });
       // If DB failed but we already encrypted the file, clean it up
       try {
         if (quarantinePath && fs.existsSync(quarantinePath)) {
           fs.unlinkSync(quarantinePath);
         }
       } catch (cleanupErr) {
-        console.error('Failed to cleanup quarantined file after error:', cleanupErr);
+        logger.error('Failed to cleanup quarantined file after error', {
+          error: cleanupErr.message || String(cleanupErr)
+        });
       }
       return { success: false, error: err.message };
     }

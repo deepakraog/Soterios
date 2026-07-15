@@ -265,6 +265,28 @@ Documentation improvements are appreciated. Examples:
 
 ---
 
+## Logging
+
+Use the shared logger in `src/utils/logger.js` for main-process and security code:
+
+```js
+const logger = require('../utils/logger');
+
+logger.debug('Detailed diagnostic');
+logger.info('Normal lifecycle event', { scanId });
+logger.warn('Recoverable problem', { path });
+logger.error('Failure that needs attention', { error: err.message });
+```
+
+Guidelines:
+
+- Prefer `logger.*` over direct `console.log` / `console.warn` / `console.error`
+- Use **debug** for high-volume details, **info** for lifecycle milestones, **warn** for recoverable issues, **error** for failures
+- Include useful context as a meta object (ids, paths, counts) — never passwords, tokens, or full file contents
+- File logging is **opt-in and disabled by default**. Pass `filePath` to `logger.configure(...)`, or set `SOTERIOS_LOG_FILE=1` (default userData log) / `SOTERIOS_LOG_FILE=/path/to/file.log`
+
+---
+
 ## Style Guidelines
 
 Prefer:

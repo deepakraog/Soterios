@@ -192,14 +192,28 @@ function isExecutablePath(filePath) {
 
 function suspiciousPathSignals(filePath) {
   const signals = [];
-  const normalized = String(filePath || '').toLowerCase();
+  const normalized = String(filePath || '').toLowerCase().replace(/\//g, '\\');
   if (!normalized) { return signals; }
-  if (normalized.includes('\\appdata\\roaming\\') || normalized.includes('\\appdata\\local\\temp\\'))
+  if (
+    normalized.includes('\\appdata\\roaming\\') ||
+    normalized.includes('\\appdata\\local\\temp\\') ||
+    (normalized.includes('\\appdata\\local\\') && normalized.includes('\\temp\\'))
+  ) {
     signals.push({ points: 25, message: 'Runs from a user AppData or temporary location.' });
-  if (normalized.includes('\\windows\\temp\\') || normalized.includes('\\users\\public\\'))
+  }
+  if (normalized.includes('\\windows\\temp\\') || normalized.includes('\\users\\public\\')) {
     signals.push({ points: 20, message: 'Runs from a commonly abused writable Windows location.' });
-  if (/\.(jpg|png|pdf|docx?|xlsx?)\.(exe|scr|js|vbs|bat|cmd|ps1)$/i.test(normalized))
+  }
+  if (
+    normalized.includes('\\$recycle.bin\\') ||
+    normalized.includes('\\recycle.bin\\') ||
+    normalized.includes('\\recycler\\')
+  ) {
+    signals.push({ points: 55, message: 'Runs from the Recycle Bin — highly unusual for legitimate software.' });
+  }
+  if (/\.(jpg|png|pdf|docx?|xlsx?)\.(exe|scr|js|vbs|bat|cmd|ps1)$/i.test(normalized)) {
     signals.push({ points: 45, message: 'Uses a double extension commonly used to disguise malware.' });
+  }
   return signals;
 }
 

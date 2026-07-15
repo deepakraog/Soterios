@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -26,7 +27,7 @@ class ClamAVEngine {
 
   async init() {
     if (!fs.existsSync(this.clamscanPath)) {
-      console.warn('ClamAV executable not found at ' + this.clamscanPath);
+      logger.warn('ClamAV executable not found at ' + this.clamscanPath);
       this.isReady = false;
       return;
     }
@@ -34,16 +35,16 @@ class ClamAVEngine {
     fs.mkdirSync(this.dbDir, { recursive: true });
 
     if (!this.hasVirusDatabase()) {
-      console.warn('ClamAV virus definitions not found in ' + this.dbDir + '; downloading with freshclam.');
+      logger.warn('ClamAV virus definitions not found in ' + this.dbDir + '; downloading with freshclam.');
       const updateResult = await this.updateDefinitions();
       if (!updateResult.success) {
         this.lastUpdateError = updateResult.error || updateResult.output || 'Unable to update ClamAV definitions';
-        console.warn('ClamAV definition update failed: ' + this.lastUpdateError);
+        logger.warn('ClamAV definition update failed: ' + this.lastUpdateError);
       }
     }
 
     this.isReady = true;
-    console.log('ClamAV engine initialized at ' + this.baseDir);
+    logger.info('ClamAV engine initialized at ' + this.baseDir);
   }
 
   getStatus() {
