@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const SystemAudit = require('./SystemAudit');
 
 class RealTimeWatcher {
@@ -13,7 +14,7 @@ class RealTimeWatcher {
       const result = await this.audit.runPowerShell('Get-MpComputerStatus | Select-Object -ExpandProperty RealTimeProtectionEnabled');
       return result.ok;
     } catch (err) {
-      console.error('Windows Defender availability check failed:', err);
+      logger.error('Windows Defender availability check failed:', err);
       return false;
     }
   }

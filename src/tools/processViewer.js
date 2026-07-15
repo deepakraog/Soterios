@@ -1,5 +1,6 @@
 const si = require('systeminformation');
 const { makeRisk } = require('../security/riskEngine');
+const { suspiciousPathSignals } = require('../security/windowsChecks');
 
 // Well-known Windows system process names that should only ever run from a
 // specific expected system directory. A process using one of these names
@@ -20,16 +21,11 @@ function isMasquerading(name, lowerPath) {
 
 function processSignals(proc) {
   const signals = [];
-  const lowerPath = String(proc.path || '').toLowerCase();
+  const lowerPath = String(proc.path || '').toLowerCase().replace(/\//g, '\\');
   const cmd = String(proc.cmd || '').toLowerCase();
   const name = (proc.name || '').toLowerCase();
 
-  if (lowerPath.includes('\\appdata\\roaming\\') || lowerPath.includes('\\appdata\\local\\temp\\'))
-    signals.push({ points: 25, message: 'Runs from a user AppData or temporary location.' });
-  if (lowerPath.includes('\\windows\\temp\\') || lowerPath.includes('\\users\\public\\'))
-    signals.push({ points: 20, message: 'Runs from a commonly abused writable Windows location.' });
-  if (/\.(jpg|png|pdf|docx?|xlsx?)\.(exe|scr|js|vbs|bat|cmd|ps1)$/i.test(lowerPath))
-    signals.push({ points: 45, message: 'Uses a double extension commonly used to disguise malware.' });
+  signals.push(...suspiciousPathSignals(proc.path));
 
   // Process masquerading -- a core system process name running from
   // somewhere other than its real system directory.
@@ -101,6 +97,11 @@ module.exports = {
           memory: p.mem !== undefined ? +(p.mem).toFixed(1) : null
         };
         item.risk = makeRisk(processSignals(item));
+        item.locationReasons = (item.risk.signals || [])
+          .map((s) => s.message)
+          .filter((msg) => /appdata|temporary|recycle bin|writable windows location|double extension/i.test(msg || ''));
+        item.suspicious = item.locationReasons.length > 0;
+        item.suspiciousReasons = (item.risk.signals || []).map((s) => s.message).filter(Boolean);
         item.recommendedAction = recommendationForRisk(item.risk);
         return item;
       }).sort((a, b) => {

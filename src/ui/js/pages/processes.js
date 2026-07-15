@@ -279,17 +279,27 @@ container.innerHTML = `
     const rawPath = p.path || p.cmd || '';
     const shortPath = truncatePath(rawPath || 'Path unavailable', 56);
     const isDanger = p.risk.score >= 35;
+    // Badge is location-only — driven by process-viewer’s `suspicious`/`locationReasons`.
+    const locationSuspicious = !!p.suspicious;
     const compact = this._compactView;
+    const reasonHint = (p.locationReasons && p.locationReasons[0])
+      || ((p.suspiciousReasons || []).find((r) =>
+        /appdata|temporary|recycle bin|writable windows location|double extension/i.test(r || '')
+      ))
+      || '';
 
     const row = document.createElement('div');
     row.className = 'list-row';
     const padding = compact ? '8px 12px' : '16px';
     const gap = compact ? '4px' : '8px';
     const fontSize = compact ? '0.8rem' : '1.1rem';
-    const showDetails = !compact;
 
     row.className = 'list-row';
     row.style.cssText = `display:flex; flex-direction:column; gap:${gap}; padding:${padding}; border-left: 4px solid ${isDanger ? 'var(--accent-danger)' : 'var(--accent-success)'}; content-visibility:auto; contain-intrinsic-size: 0 ${compact ? 80 : 160}px;`;
+
+    const locationBadge = locationSuspicious
+      ? `<span class="location-flag" title="${escapeHtml(reasonHint)}" style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(232,179,57,0.18); color:var(--accent-warning); white-space:nowrap;">Suspicious location</span>`
+      : '';
 
     if (compact) {
       row.innerHTML = `
@@ -297,6 +307,7 @@ container.innerHTML = `
           <div style="min-width:0; display:flex; align-items:center; gap:8px;">
             <img class="process-icon" data-exe="${escapeHtml(rawPath || '')}" src="" alt="" style="width:18px;height:18px;flex-shrink:0;border-radius:3px;display:none;" />
             <div style="font-weight:600; font-size:${fontSize};">${escapeHtml(p.name)} <span class="page-subtitle" style="font-size:0.75rem;">(PID ${escapeHtml(p.pid)})</span></div>
+            ${locationBadge}
             <span class="risk-score" style="font-weight:600; font-size:${fontSize}; color:${isDanger ? 'var(--accent-danger)' : 'var(--accent-success)'}">${escapeHtml(p.risk.score)} Risk</span>
             <span class="risk-level page-subtitle" style="font-size:0.7rem; text-transform:uppercase;">${escapeHtml(p.risk.level)}</span>
           </div>
@@ -309,9 +320,10 @@ container.innerHTML = `
     } else {
       row.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-          <div style="min-width:0; display:flex; align-items:center; gap:8px;">
+          <div style="min-width:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <img class="process-icon" data-exe="${escapeHtml(rawPath || '')}" src="" alt="" style="width:20px;height:20px;flex-shrink:0;border-radius:3px;display:none;" />
             <div style="font-weight:600; font-size:1.1rem;">${escapeHtml(p.name)} <span class="page-subtitle" style="font-size:0.85rem;">(PID ${escapeHtml(p.pid)})</span></div>
+            ${locationBadge}
             <div class="path-chip" title="${escapeHtml(rawPath)}">${escapeHtml(shortPath)}</div>
           </div>
           <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
@@ -322,8 +334,8 @@ container.innerHTML = `
             <button class="btn btn-sm" style="color: var(--accent-danger);" data-end-process="${escapeHtml(p.pid)}" data-process-name="${escapeHtml(p.name)}">End Process</button>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--glass-border);">
-          <div class="recommended-action" style="font-size:0.85rem; color:var(--accent-warning);">${escapeHtml(p.recommendedAction)}</div>
+        <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--glass-border); gap:12px; flex-wrap:wrap;">
+          <div class="recommended-action" style="font-size:0.85rem; color:var(--accent-warning); flex:1; min-width:200px;">${escapeHtml(p.recommendedAction)}${reasonHint ? ` — ${escapeHtml(reasonHint)}` : ''}</div>
           <div style="display:flex; gap:16px; font-size:0.85rem; font-weight:500;">
             <span class="cpu-value">${p.cpu !== null ? p.cpu + '% CPU' : 'CPU n/a'}</span>
             <span class="memory-value">${p.memory !== null ? p.memory + '% RAM' : 'RAM n/a'}</span>
