@@ -293,7 +293,7 @@ class DatabaseService {
   getMaintenanceHistory(limit = 25) {
     return this.db.prepare(`
       SELECT id, timestamp, started_at, ok_count, total_count, dry_run, results_json
-      FROM maintenance_runs ORDER BY timestamp DESC LIMIT ?
+      FROM maintenance_runs ORDER BY timestamp DESC, id DESC LIMIT ?
     `).all(limit).map((row) => ({
       id: row.id,
       timestamp: row.timestamp,
@@ -314,7 +314,7 @@ class DatabaseService {
     return this.db.prepare(`
       DELETE FROM maintenance_runs
       WHERE id IN (
-        SELECT id FROM maintenance_runs ORDER BY timestamp ASC LIMIT ?
+        SELECT id FROM maintenance_runs ORDER BY timestamp ASC, id ASC LIMIT ?
       )
     `).run(deleteCount);
   }

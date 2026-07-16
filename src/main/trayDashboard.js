@@ -15,8 +15,10 @@ function positionTrayWindow(tray, trayWindow) {
   const trayBounds = tray.getBounds();
   const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y });
   const { workArea } = display;
-  const x = Math.round(trayBounds.x + trayBounds.width / 2 - TRAY_WIDTH / 2);
-  const y = Math.round(Math.max(workArea.y + 8, trayBounds.y - TRAY_HEIGHT - 8));
+  let x = Math.round(trayBounds.x + trayBounds.width / 2 - TRAY_WIDTH / 2);
+  let y = Math.round(trayBounds.y - TRAY_HEIGHT - 8);
+  x = Math.max(workArea.x + 8, Math.min(x, workArea.x + workArea.width - TRAY_WIDTH - 8));
+  y = Math.max(workArea.y + 8, Math.min(y, workArea.y + workArea.height - TRAY_HEIGHT - 8));
   trayWindow.setBounds({ x, y, width: TRAY_WIDTH, height: TRAY_HEIGHT }, false);
 }
 
@@ -74,8 +76,8 @@ function initTrayDashboard({ app, mainWindow, getSummary }) {
       return;
     }
     positionTrayWindow(tray, trayWindow);
-    await refreshTrayWindow();
     trayWindow.show();
+    await refreshTrayWindow();
     trayWindow.focus();
   });
 

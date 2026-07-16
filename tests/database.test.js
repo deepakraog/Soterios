@@ -139,15 +139,18 @@ describe('DatabaseService maintenance_runs', () => {
 
   it('pruneMaintenanceRuns keeps the most recent rows', () => {
     const service = new DatabaseService(tempDbPath());
+    const ids = [];
     for (let i = 0; i < 5; i += 1) {
-      service.addMaintenanceRun({
+      const result = service.addMaintenanceRun({
         startedAt: new Date(Date.now() + i).toISOString(),
         results: [{ scriptId: 'disk-space-report', ok: true }],
         dryRunCleanup: false
       });
+      ids.push(Number(result.lastInsertRowid));
     }
     service.pruneMaintenanceRuns(2);
-    assert.equal(service.getMaintenanceHistory(10).length, 2);
+    const kept = service.getMaintenanceHistory(10).map((row) => row.id);
+    assert.deepEqual(kept, ids.slice(-2));
     service.db.close();
   });
 

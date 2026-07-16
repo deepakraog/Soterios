@@ -7,7 +7,8 @@ const DEFAULT_MAINTENANCE = {
   minIdleSeconds: 900,
   scriptIds: ['clear-temp-files', 'disk-space-report'],
   notifyOnComplete: true,
-  lastRun: null
+  lastRun: null,
+  lastAttempt: null
 };
 
 const SCHEDULE_PRESETS = {
@@ -140,8 +141,8 @@ class MaintenanceScheduler {
     }
 
     const intervalMs = config.intervalHours * 60 * 60 * 1000;
-    const lastRunMs = config.lastRun ? new Date(config.lastRun).getTime() : 0;
-    if (Date.now() - lastRunMs < intervalMs) {
+    const lastAttemptMs = config.lastAttempt ? new Date(config.lastAttempt).getTime() : 0;
+    if (Date.now() - lastAttemptMs < intervalMs) {
       return { ok: false, skipped: true, reason: 'not-due' };
     }
 
@@ -156,6 +157,7 @@ class MaintenanceScheduler {
     const config = this.loadConfig();
     this._running = true;
     const startedAt = new Date().toISOString();
+    this.saveConfig({ lastAttempt: startedAt });
     const results = [];
 
     try {

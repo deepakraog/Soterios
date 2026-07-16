@@ -112,6 +112,27 @@ describe('MaintenanceScheduler', () => {
     scheduler.saveConfig({ enabled: true, scriptIds: ['disk-space-report'] });
     await scheduler.runNow();
     assert.equal(scheduler.loadConfig().lastRun, null);
+    assert.ok(scheduler.loadConfig().lastAttempt);
+  });
+
+  it('throttles failed runs using lastAttempt', async () => {
+    const db = createDb();
+    let runs = 0;
+    const scheduler = new MaintenanceScheduler({
+      db,
+      toolRegistry: {
+        run: async () => {
+          runs += 1;
+          return { ok: false, error: 'failed' };
+        }
+      }
+    });
+    scheduler.saveConfig({ enabled: true, intervalHours: 24, scriptIds: ['disk-space-report'] });
+    await scheduler.runNow();
+    const second = await scheduler.runIfDue();
+    assert.equal(runs, 1);
+    assert.equal(second.skipped, true);
+    assert.equal(second.reason, 'not-due');
   });
 
   it('skips idle preset runs while user is active', async () => {

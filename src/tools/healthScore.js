@@ -95,7 +95,7 @@ module.exports = {
       label: LABELS.disk, points: bandedPoints(worstUse, [[70, 15], [85, 10], [95, 5]]), max: 15,
       reason: fullVolumes.length
         ? `Low space on: ${fullVolumes.join(', ')} (${worstUse.toFixed(0)}% used).`
-        : !hasRelevant && fsSize.length
+        : !hasRelevant
           ? 'No user-facing volumes found for disk scoring.'
           : `All volumes healthy (highest usage ${worstUse.toFixed(0)}%).`
     };

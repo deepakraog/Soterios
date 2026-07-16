@@ -30,4 +30,17 @@ describe('healthScore volume filtering', () => {
     assert.equal(hasRelevant, false);
     assert.equal(worstUse, 0);
   });
+
+  it('uses empty-volume fallback when no relevant volumes are present', () => {
+    const { worstUse, fullVolumes, hasRelevant } = healthScore.worstUsageFromVolumes([
+      { mount: '\\\\?\\Volume{recovery}', size: 500 * 1024 ** 2, use: 100 }
+    ]);
+    assert.equal(hasRelevant, false);
+    const reason = fullVolumes.length
+      ? `Low space on: ${fullVolumes.join(', ')} (${worstUse.toFixed(0)}% used).`
+      : !hasRelevant
+        ? 'No user-facing volumes found for disk scoring.'
+        : `All volumes healthy (highest usage ${worstUse.toFixed(0)}%).`;
+    assert.match(reason, /No user-facing volumes found for disk scoring/);
+  });
 });

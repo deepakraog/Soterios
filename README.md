@@ -117,11 +117,11 @@ In order to utilize these environment variables during runtime, the start comman
 ```text
 main.js Electron root entry point
 src/preload/ contextBridge API exposed to the renderer
-src/main/ IPC handlers and app/service orchestration
+src/main/ IPC handlers, ServiceRegistry, and app/service orchestration
 src/core/ database, event bus, tool registry, plugin loader
 src/security/ scanning, quarantine, audit, firewall, network, process, and realtime services
 src/tools/ built-in tool modules
-src/scripts/ maintenance scripts and registry (shipped with the app)
+src/scripts/ safe script modules and registry (maintenance, cleanup, reports)
 src/ui/ shell, CSS, shared JS, and page modules
 assets/ Soterios icons and bundled ClamAV files
 tools/ build and install helpers (ClamAV download)

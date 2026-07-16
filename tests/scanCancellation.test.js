@@ -117,9 +117,7 @@ describe('Scan cancellation cleanup', () => {
 
     const pending = scanEngine.runScan('folderwatch', [path.join(os.tmpdir(), 'watched.bin')], 'Folder watch');
     await waitFor(() => scanEngine.getStatus().isScanning);
-    const blocked = scanEngine.getStatus().currentScan?.scanType === 'folderwatch'
-      ? { success: false, canceled: false, error: 'No user scan in progress' }
-      : scanEngine.abortScan();
+    const blocked = scanEngine.abortScan();
     assert.deepEqual(blocked, { success: false, canceled: false, error: 'No user scan in progress' });
     assert.equal(aborted, false);
     await pending;
@@ -128,7 +126,12 @@ describe('Scan cancellation cleanup', () => {
   it('does not persist reports for canceled or folderwatch scans', async () => {
     let savedReports = 0;
     let loggedScans = 0;
-    const fakeClam = {
+    const db = {
+      getSetting: () => true,
+      logScan: () => { loggedScans += 1; },
+      addScanReport: () => { savedReports += 1; }
+    };
+    const syncClam = {
       scanFile: async () => ({
         success: true,
         threatsFound: 0,
@@ -136,28 +139,43 @@ describe('Scan cancellation cleanup', () => {
         threats: []
       })
     };
-    const eventBus = new EventEmitter();
+    const folderwatchEngine = new ScanEngine(
+      db,
+      new EventEmitter(),
+      syncClam,
+      { analyze: async () => ({ score: 0, signals: [] }) },
+      { checkHash: async () => null },
+      { quarantine: async () => ({ success: true }) }
+    );
+
+    await folderwatchEngine.runScan('folderwatch', [path.join(os.tmpdir(), 'watched.bin')], 'Folder watch');
+    assert.equal(savedReports, 0);
+    assert.equal(loggedScans, 0);
+
+    const fakeClam = new FakeClamEngine();
     const scanEngine = new ScanEngine(
-      {
-        getSetting: () => true,
-        logScan: () => { loggedScans += 1; },
-        addScanReport: () => { savedReports += 1; }
-      },
-      eventBus,
+      db,
+      new EventEmitter(),
       fakeClam,
       { analyze: async () => ({ score: 0, signals: [] }) },
       { checkHash: async () => null },
       { quarantine: async () => ({ success: true }) }
     );
 
-    await scanEngine.runScan('folderwatch', [path.join(os.tmpdir(), 'watched.bin')], 'Folder watch');
-    assert.equal(savedReports, 0);
-    assert.equal(loggedScans, 0);
-
     const pending = scanEngine.runCustomScan(['C:\\temp']);
+    await waitFor(() => fakeClam.pendingResolve !== null);
     scanEngine.abortScan();
+    fakeClam.pendingResolve({
+      success: false,
+      canceled: true,
+      error: 'Scan canceled',
+      threatsFound: 0,
+      filesScanned: 0,
+      output: ''
+    });
     await pending;
     assert.equal(savedReports, 0);
+    assert.equal(loggedScans, 0);
   });
 });
 

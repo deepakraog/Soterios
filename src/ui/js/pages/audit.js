@@ -229,7 +229,7 @@ window.Pages['audit'] = {
     const items = rows.map((row) => {
       const when = row.started_at || row.timestamp;
       const whenLabel = when ? new Date(when).toLocaleString() : 'Unknown time';
-      const mode = row.dry_run ? 'scheduled (dry-run cleanup)' : 'manual';
+      const mode = row.dry_run ? 'dry-run cleanup' : 'live cleanup';
       const detail = (row.results || []).map((r) => `${r.scriptId}: ${r.ok ? 'OK' : (r.error || 'failed')}`).join('; ');
       return `<div class="history-item">
         <div>
