@@ -63,7 +63,7 @@ let mainWindow;
 let splashWindow;
 let splashTimeoutId;
 let dbRef; // set once the database is created in app.whenReady() below, so
-           // showNotification (defined before that point) can check settings
+// showNotification (defined before that point) can check settings
 let currentUiTheme = 'dark';
 let isQuitting = false;
 const lifecycleRefs = {
@@ -573,7 +573,7 @@ app.whenReady().then(async () => {
     }
     if (!data || typeof data.pct !== 'number') return;
     if (dbRef && !dbRef.getSetting('feature.scanNotifications', true)) return;
-    if (scanType === 'definitions' || isBackgroundScan(scanType)) return;
+    if (scanType === 'definitions' || isBackgroundScan(scanType) || scanType === 'custom') return;
     const milestone = [0, 25, 50, 75].find((value) => data.pct >= value && !announcedProgress.has(value));
     if (milestone !== undefined) {
       announcedProgress.add(milestone);
@@ -589,7 +589,7 @@ app.whenReady().then(async () => {
       mainWindow.webContents.send('scan:complete', data);
     }
     announcedProgress.clear();
-    if (isBackgroundScan(scanType)) return;
+    if (isBackgroundScan(scanType) || scanType === 'custom') return;
 
     let label;
     let body;
@@ -621,6 +621,7 @@ app.whenReady().then(async () => {
         const isCanceled = data.status === 'canceled' || data.report?.status === 'canceled';
         if (isCanceled || (scanType !== 'quick' && scanType !== 'full')) return;
         logLine('info', 'Generating scan report...');
+
         const result = await toolRegistry.run('generate-security-report', { version: app.getVersion() }, { toolRegistry, db, log: logLine });
         logLine('info', 'Scan report ' + (result.ok ? 'generated' : 'failed: ' + (result.error || 'unknown')));
       } catch (err) {
