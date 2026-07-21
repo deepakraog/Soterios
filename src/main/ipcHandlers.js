@@ -14,6 +14,7 @@ const {
   threatsToCsv,
   securityReportToCsv,
   csvPathForJson,
+  safeWriteFileSync,
   generatePdfFromHtml
 } = require('../security/reportExport');
 const updater = require('./updater');
@@ -375,7 +376,7 @@ function registerIpcHandlers(mainWindow, services) {
     if (config.scanType === 'custom' && !config.customPath) return;
 
     const engineStatus = scanEngine.getStatus();
-    if (engineStatus && engineStatus.isScanning) return; // don't collide with a manual/other scan
+    if (engineStatus && (engineStatus.isScanning || engineStatus.isFolderWatchScanning)) return; // don't collide with any scan
 
     const intervalMs = Math.max(1, Number(config.intervalHours) || 24) * 60 * 60 * 1000;
     const lastRunMs = config.lastRun ? new Date(config.lastRun).getTime() : 0;
@@ -699,7 +700,7 @@ function registerIpcHandlers(mainWindow, services) {
         if (!fs.existsSync(resolved)) return { success: false, error: 'Report file not found.' };
         const report = JSON.parse(fs.readFileSync(resolved, 'utf8'));
         const csvPath = resolved.replace(/\.json$/i, '.csv');
-        fs.writeFileSync(csvPath, securityReportToCsv(report), 'utf8');
+        safeWriteFileSync(csvPath, securityReportToCsv(report), 'utf8');
         return { success: true, path: csvPath };
       }
       // Scan report export
@@ -713,7 +714,7 @@ function registerIpcHandlers(mainWindow, services) {
       }
       const report = JSON.parse(fs.readFileSync(row.json_path, 'utf8'));
       const csvPath = csvPathForJson(row.json_path);
-      fs.writeFileSync(csvPath, threatsToCsv(report), 'utf8');
+      safeWriteFileSync(csvPath, threatsToCsv(report), 'utf8');
       return { success: true, path: csvPath };
     } catch (err) {
       return { success: false, error: err.message || String(err) };

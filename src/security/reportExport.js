@@ -115,6 +115,25 @@ function csvPathForJson(jsonPath) {
   return String(jsonPath).replace(/\.json$/i, '.csv');
 }
 
+// Guards against writing through a symlink/hardlink that an attacker may
+// have pre-created at the derived export destination. Export paths are
+// timestamp-derived, so they should never need to overwrite an existing
+// file. Use atomic open flags to avoid TOCTOU: O_EXCL for exclusive
+// create, O_NOFOLLOW on POSIX to refuse symlinks at open time.
+function safeWriteFileSync(destPath, data, encoding) {
+  const isWin = process.platform === 'win32';
+  const flags = isWin
+    ? fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_TRUNC
+    : fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW;
+  
+  const fd = fs.openSync(destPath, flags);
+  try {
+    fs.writeSync(fd, encoding ? Buffer.from(data, encoding) : Buffer.from(data));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 async function generatePdfFromHtml(htmlPath) {
   if (!htmlPath || !fs.existsSync(htmlPath)) {
     throw new Error('Report HTML file not found.');
@@ -138,7 +157,7 @@ async function generatePdfFromHtml(htmlPath) {
     await win.loadFile(htmlPath);
     const pdfBuffer = await win.webContents.printToPDF({ printBackground: true });
     const pdfPath = pdfPathForHtml(htmlPath);
-    fs.writeFileSync(pdfPath, pdfBuffer);
+    safeWriteFileSync(pdfPath, pdfBuffer);
     return pdfPath;
   } finally {
     if (!win.isDestroyed()) win.destroy();
@@ -153,6 +172,7 @@ module.exports = {
   isPathInAllowedReportDir,
   csvEscape,
   isThreatQuarantined,
+  safeWriteFileSync,
   threatsToCsv,
   securityReportToCsv,
   pdfPathForHtml,
